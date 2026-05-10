@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgenticCreed · Azure Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #020B18; }
+    #root { min-height: 100vh; }
+
+    @keyframes ping {
+      75%, 100% { transform: scale(2.2); opacity: 0; }
+    }
+    @keyframes flowDrop {
+      0%   { transform: translateY(0);   opacity: 1; }
+      100% { transform: translateY(26px); opacity: 0; }
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .section-anim { animation: slideIn 0.45s ease both; }
+
+    .tab-btn { transition: all 0.2s ease; }
+    .tab-btn:hover { background: rgba(0,120,212,0.18) !important; color: #50E6FF !important; }
+
+    .glass-card { transition: all 0.3s ease; }
+    .glass-card:hover {
+      border-color: rgba(0,120,212,0.5) !important;
+      box-shadow: 0 8px 32px rgba(0,120,212,0.18), 0 0 0 1px rgba(0,120,212,0.18) !important;
+      transform: translateY(-2px);
+    }
+    .glass-card.no-hover:hover {
+      border-color: rgba(255,255,255,0.08) !important;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3) !important;
+      transform: none !important;
+    }
+
+    .svc-node { transition: all 0.25s ease; cursor: default; }
+    .svc-node:hover { transform: translateY(-2px); }
+
+    .pipeline-step { transition: all 0.25s ease; position: relative; }
+    .pipeline-step:hover { transform: translateY(-3px); }
+
+    .infra-card { transition: all 0.3s ease; }
+    .infra-card:hover { transform: translateY(-3px) scale(1.01); }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #020B18; }
+    ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+/* ─── SVG Icons ─────────────────────────────────────────────────────────── */
+const AzureIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 96 96" fill="none">
+    <defs>
+      <linearGradient id="az1" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#0078D4" />
+        <stop offset="100%" stopColor="#50E6FF" />
+      </linearGradient>
+    </defs>
+    <path d="M33.34 7.07L3.5 55.93l18.87 32.93h71.13L33.34 7.07z" fill="url(#az1)" />
+    <path d="M55.2 7.07L26.13 58.27l13.6 23.73 34.27-37.8L55.2 7.07z" fill="#0078D4" opacity="0.6" />
+  </svg>
+);
+
+const DockerIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M13.983 11.078h2.119a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.119a.185.185 0 00-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 00.186-.186V3.574a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.888c0 .103.082.185.185.185m0 2.716h2.118a.187.187 0 00.186-.186V6.29a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.887c0 .102.082.185.185.186m-2.93 0h2.12a.186.186 0 00.184-.186V6.29a.185.185 0 00-.185-.185H8.1a.185.185 0 00-.185.185v1.887c0 .102.083.185.185.186m-2.964 0h2.119a.186.186 0 00.185-.186V6.29a.185.185 0 00-.185-.185H5.136a.186.186 0 00-.186.185v1.887c0 .102.084.185.186.186m5.893 2.715h2.118a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 00.185-.185V9.006a.185.185 0 00-.184-.186h-2.12a.186.186 0 00-.186.186v1.887c0 .102.084.185.186.185m-2.92 0h2.12a.186.186 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.083.185.185.185" fill="#099CEC" />
+    <path d="M23.763 9.89c-.21-.376-.54-.687-.95-.868-.416-.181-.896-.254-1.418-.224a4.18 4.18 0 00-.618.082 2.768 2.768 0 00-.633-1.238 2.763 2.763 0 00-1.165-.736l-.374-.103-.213.33a3.328 3.328 0 00-.44 1.02 3.23 3.23 0 00.04 1.368c-.156.082-.302.176-.432.278H1.562a.56.56 0 00-.56.56v1.888c0 .308.25.558.56.558h6.46c-.047.092-.087.185-.12.28a3.26 3.26 0 00-.138 1.35c.04.435.18.865.41 1.25.232.383.547.71.927.962a3.9 3.9 0 001.257.52 5.75 5.75 0 001.358.084c.447-.02.886-.1 1.31-.233a5.47 5.47 0 001.186-.548 5.31 5.31 0 001.014-.853 5.15 5.15 0 00.71-1.13h.165a3.268 3.268 0 002.217-.898 3.14 3.14 0 00.74-1.12 3.07 3.07 0 00.15-1.327z" fill="#099CEC" />
+  </svg>
+);
+
+const GithubIcon = ({ size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
+  </svg>
+);
+
+const ContainerIcon = ({ size = 20, color = "#50E6FF" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
+    <rect x="2" y="7" width="20" height="14" rx="2" />
+    <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
+    <line x1="12" y1="12" x2="12" y2="16" />
+    <line x1="10" y1="14" x2="14" y2="14" />
+  </svg>
+);
+
+const ShieldIcon = ({ size = 16, color = "#10B981" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+
+const GlobeIcon = ({ size = 16, color = "#F59E0B" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="2" y1="12" x2="22" y2="12" />
+    <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+  </svg>
+);
+
+const ActivityIcon = ({ size = 14, color = "#10B981" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+  </svg>
+);
+
+const CpuIcon = ({ size = 14, color = "#8B5CF6" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
+    <rect x="4" y="4" width="16" height="16" rx="2" />
+    <rect x="9" y="9" width="6" height="6" />
+    <line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" />
+    <line x1="9" y1="20" x2="9" y2="23" /><line x1="15" y1="20" x2="15" y2="23" />
+    <line x1="20" y1="9" x2="23" y2="9" /><line x1="20" y1="14" x2="23" y2="14" />
+    <line x1="1" y1="9" x2="4" y2="9" /><line x1="1" y1="14" x2="4" y2="14" />
+  </svg>
+);
+
+const MemoryIcon = ({ size = 14, color = "#F59E0B" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
+    <rect x="2" y="6" width="20" height="12" rx="2" />
+    <path d="M6 6V4m4 2V4m4 2V4m4 2V4M6 18v2m4-2v2m4-2v2m4-2v2" />
+  </svg>
+);
+
+const ZapIcon = ({ size = 14, color = "#EF4444" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+  </svg>
+);
+
+const CheckCircleIcon = ({ size = 14, color = "#10B981" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
+    <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
+  </svg>
+);
+
+/* ─── Pulse Dot ─────────────────────────────────────────────────────────── */
+const PulseDot = ({ color = "#10B981", size = 8 }) => (
+  <span style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+    <span style={{
+      position: "absolute", width: size * 2.2, height: size * 2.2, borderRadius: "50%",
+      backgroundColor: color, opacity: 0.28,
+      animation: "ping 1.6s cubic-bezier(0,0,0.2,1) infinite"
+    }} />
+    <span style={{ width: size, height: size, borderRadius: "50%", backgroundColor: color, display: "block" }} />
+  </span>
+);
+
+/* ─── Flow Arrow ─────────────────────────────────────────────────────────── */
+const FlowArrow = ({ delay = 0, color = "#0078D4", label = "" }) => (
+  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, margin: "2px 0" }}>
+    {label && (
+      <span style={{ fontSize: 9, color: "#64748B", fontFamily: "monospace", letterSpacing: 1, textTransform: "uppercase" }}>{label}</span>
+    )}
+    <div style={{ position: "relative", height: 38, display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ width: 2, height: 26, background: `linear-gradient(to bottom, transparent, ${color})` }} />
+      <div style={{ width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: `8px solid ${color}` }} />
+      <div style={{
+        position: "absolute", top: 0, width: 7, height: 7, borderRadius: "50%",
+        backgroundColor: color, boxShadow: `0 0 10px ${color}`,
+        animation: `flowDrop 1.5s ${delay}s ease-in infinite`
+      }} />
+    </div>
+  </div>
+);
+
+/* ─── Section Title ──────────────────────────────────────────────────────── */
+const SectionTitle = ({ icon, children, accent = "#0078D4" }) => (
+  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 22 }}>
+    <div style={{
+      width: 36, height: 36, borderRadius: 10,
+      background: `linear-gradient(135deg, ${accent}33, ${accent}11)`,
+      border: `1px solid ${accent}44`,
+      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+    }}>{icon}</div>
+    <div>
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: accent, letterSpacing: 2.5, textTransform: "uppercase" }}>{children}</div>
+      <div style={{ width: 44, height: 2, background: `linear-gradient(to right, ${accent}, transparent)`, marginTop: 4 }} />
+    </div>
+  </div>
+);
+
+/* ─── Glass Card ─────────────────────────────────────────────────────────── */
+const GlassCard = ({ children, style = {}, noHover = false }) => (
+  <div className={`glass-card${noHover ? " no-hover" : ""}`} style={{
+    background: "rgba(255,255,255,0.04)",
+    backdropFilter: "blur(12px)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: 16, padding: 20,
+    boxShadow: "0 4px 16px rgba(0,0,0,0.32)",
+    ...style,
+  }}>{children}</div>
+);
+
+/* ─── Service Node ───────────────────────────────────────────────────────── */
+const ServiceNode = ({ name, url, external, color = "#0078D4", emoji, small = false }) => (
+  <div className="svc-node" style={{
+    display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+    padding: small ? "10px 14px" : "14px 22px",
+    background: "rgba(255,255,255,0.04)",
+    border: `1px solid ${color}33`,
+    borderRadius: 14, minWidth: small ? 100 : 130,
+  }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontSize: small ? 14 : 18 }}>{emoji}</span>
+      <span style={{ fontFamily: "'Space Mono', monospace", fontSize: small ? 11 : 13, color: "#E2E8F0", fontWeight: 700 }}>{name}</span>
+    </div>
+    {url && <span style={{ fontFamily: "monospace", fontSize: 9, color: "#F59E0B", letterSpacing: 0.5 }}>{url}</span>}
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <PulseDot color={external ? "#F59E0B" : "#10B981"} size={5} />
+      <span style={{ fontSize: 9, color: external ? "#F59E0B" : "#10B981", fontFamily: "monospace" }}>
+        {external ? "EXTERNAL" : "INTERNAL"}
+      </span>
+    </div>
+  </div>
+);
+
+/* ─── Pipeline Step ──────────────────────────────────────────────────────── */
+const PipelineStep = ({ emoji, label, sublabel, color = "#0078D4", step }) => (
+  <div className="pipeline-step" style={{
+    display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+    padding: "14px 18px",
+    background: "rgba(255,255,255,0.04)",
+    border: `1px solid ${color}33`,
+    borderRadius: 14, minWidth: 110,
+  }}>
+    <div style={{
+      position: "absolute", top: -10, right: -10,
+      width: 20, height: 20, borderRadius: "50%",
+      background: color, display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: 10, color: "#fff", fontWeight: 700, fontFamily: "monospace"
+    }}>{step}</div>
+    <span style={{ fontSize: 24 }}>{emoji}</span>
+    <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#E2E8F0", fontWeight: 700, textAlign: "center" }}>{label}</span>
+    {sublabel && <span style={{ fontFamily: "monospace", fontSize: 9, color: "#64748B", textAlign: "center" }}>{sublabel}</span>}
+  </div>
+);
+
+/* ─── Pipeline Arrow ─────────────────────────────────────────────────────── */
+const PipeArrow = ({ from, to }) => (
+  <div style={{ display: "flex", alignItems: "center", padding: "0 2px", flexShrink: 0 }}>
+    <div style={{ width: 32, height: 2, background: `linear-gradient(to right, ${from}, ${to})`, position: "relative" }}>
+      <div style={{
+        position: "absolute", right: -1, top: "50%", transform: "translateY(-50%)",
+        width: 0, height: 0,
+        borderTop: "5px solid transparent", borderBottom: "5px solid transparent", borderLeft: `8px solid ${to}`
+      }} />
+    </div>
+  </div>
+);
+
+/* ─── Infra Card ─────────────────────────────────────────────────────────── */
+const InfraCard = ({ service }) => {
+  const isExt = service.ingress === "External";
+  const accent = isExt ? "#F59E0B" : "#0078D4";
+  return (
+    <div className="infra-card" style={{
+      background: "rgba(255,255,255,0.04)",
+      border: `1px solid rgba(255,255,255,0.07)`,
+      borderRadius: 16, padding: "18px 16px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+      position: "relative", overflow: "hidden",
+    }}>
+      <div style={{
+        position: "absolute", top: 0, left: "20%", right: "20%", height: 1,
+        background: `linear-gradient(to right, transparent, ${accent}66, transparent)`
+      }} />
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: `linear-gradient(135deg, ${accent}33, ${accent}11)`,
+            border: `1px solid ${accent}44`,
+            display: "flex", alignItems: "center", justifyContent: "center"
+          }}>
+            <ContainerIcon size={16} color={accent} />
+          </div>
+          <div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#F1F5F9", fontWeight: 700 }}>{service.name}</div>
+            <div style={{ fontSize: 9, color: "#64748B", fontFamily: "monospace" }}>Container App</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <PulseDot color="#10B981" size={5} />
+          <span style={{ fontSize: 9, color: "#10B981", fontFamily: "monospace" }}>HEALTHY</span>
+        </div>
+      </div>
+      {/* Metrics */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+        {[
+          { icon: <CpuIcon />, label: "CPU",      value: service.cpu },
+          { icon: <MemoryIcon />, label: "RAM",   value: service.ram },
+          { icon: <ZapIcon />,   label: "Min Rep", value: service.minReplicas },
+          { icon: <ActivityIcon />, label: "Max Rep", value: service.maxReplicas },
+        ].map((m, i) => (
+          <div key={i} style={{
+            display: "flex", alignItems: "center", gap: 5,
+            background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "6px 8px"
+          }}>
+            {m.icon}
+            <div>
+              <div style={{ fontSize: 8, color: "#64748B", fontFamily: "monospace" }}>{m.label}</div>
+              <div style={{ fontSize: 11, color: "#CBD5E1", fontFamily: "'Space Mono', monospace", fontWeight: 700 }}>{m.value}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* Port + Ingress */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 4,
+          background: "rgba(255,255,255,0.05)", borderRadius: 6, padding: "4px 8px"
+        }}>
+          <span style={{ fontSize: 8, color: "#64748B", fontFamily: "monospace" }}>PORT</span>
+          <span style={{ fontSize: 10, color: "#94A3B8", fontFamily: "monospace", fontWeight: 700 }}>{service.port}</span>
+        </div>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 4,
+          background: isExt ? "rgba(245,158,11,0.1)" : "rgba(0,120,212,0.1)",
+          border: `1px solid ${accent}33`,
+          borderRadius: 6, padding: "4px 8px"
+        }}>
+          {isExt ? <GlobeIcon size={10} color="#F59E0B" /> : <ShieldIcon size={10} color="#0078D4" />}
+          <span style={{ fontSize: 9, color: accent, fontFamily: "monospace", fontWeight: 700 }}>{service.ingress}</span>
+        </div>
+      </div>
+      {service.url && (
+        <div style={{
+          marginTop: 10, padding: "5px 8px", borderRadius: 6,
+          background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)"
+        }}>
+          <span style={{ fontSize: 9, color: "#F59E0B", fontFamily: "monospace" }}>{service.url}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ─── Data ───────────────────────────────────────────────────────────────── */
+const SERVICES = [
+  { name: "frontend",     cpu: "0.5 vCPU", ram: "1 Gi",    minReplicas: 1, maxReplicas: 5,  ingress: "External", port: 3000, url: "app.apiswagger.co.uk" },
+  { name: "gateway",      cpu: "0.5 vCPU", ram: "1 Gi",    minReplicas: 1, maxReplicas: 10, ingress: "External", port: 8080, url: "gateway.apiswagger.co.uk" },
+  { name: "notification", cpu: "0.25 vCPU", ram: "0.5 Gi", minReplicas: 0, maxReplicas: 5,  ingress: "Internal", port: 5001 },
+  { name: "useraccount",  cpu: "0.25 vCPU", ram: "0.5 Gi", minReplicas: 0, maxReplicas: 5,  ingress: "Internal", port: 5002 },
+  { name: "userprofile",  cpu: "0.25 vCPU", ram: "0.5 Gi", minReplicas: 0, maxReplicas: 5,  ingress: "Internal", port: 5003 },
+  { name: "sales",        cpu: "0.5 vCPU",  ram: "1 Gi",   minReplicas: 1, maxReplicas: 8,  ingress: "Internal", port: 5004 },
+  { name: "account",      cpu: "0.25 vCPU", ram: "0.5 Gi", minReplicas: 0, maxReplicas: 5,  ingress: "Internal", port: 5005 },
+];
+const INTERNAL = SERVICES.filter(s => s.ingress === "Internal");
+
+/* ─── App ────────────────────────────────────────────────────────────────── */
+function App() {
+  const [tab, setTab] = useState("workflow");
+
+  const tabs = [
+    { id: "workflow", label: "Workflow" },
+    { id: "cicd",     label: "CI/CD Pipeline" },
+    { id: "infra",    label: "Infrastructure" },
+  ];
+
+  /* shared page wrapper */
+  const page = (children) => (
+    <div style={{
+      minHeight: "100vh",
+      background: "#020B18",
+      backgroundImage: `
+        radial-gradient(ellipse at 18% 12%, rgba(0,120,212,0.13) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 78%, rgba(80,230,255,0.07) 0%, transparent 50%)
+      `,
+      fontFamily: "'Space Mono', 'Courier New', monospace",
+      color: "#E2E8F0",
+    }}>
+      {/* Header */}
+      <div style={{
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        background: "rgba(0,0,0,0.45)", backdropFilter: "blur(20px)",
+        padding: "0 40px", position: "sticky", top: 0, zIndex: 100,
+      }}>
+        <div style={{ maxWidth: 1380, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, flexWrap: "wrap", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 12,
+              background: "linear-gradient(135deg, #0078D4, #50E6FF)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 0 22px rgba(0,120,212,0.55)", flexShrink: 0
+            }}><AzureIcon size={22} /></div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#F1F5F9", letterSpacing: 1 }}>AgenticCreed</div>
+              <div style={{ fontSize: 9, color: "#0078D4", letterSpacing: 3, textTransform: "uppercase" }}>Azure Architecture · agentic-dev</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <PulseDot color="#10B981" size={6} />
+              <span style={{ fontSize: 10, color: "#10B981" }}>7 Services Running</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <PulseDot color="#0078D4" size={6} />
+              <span style={{ fontSize: 10, color: "#0078D4" }}>2 External Endpoints</span>
+            </div>
+            <span style={{ fontSize: 10, color: "#475569" }}>agentic-dev · Azure Container Apps</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 1380, margin: "0 auto", padding: "30px 40px 60px" }}>
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 28, background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: 4, width: "fit-content", border: "1px solid rgba(255,255,255,0.06)" }}>
+          {tabs.map(t => (
+            <button key={t.id} className="tab-btn" onClick={() => setTab(t.id)} style={{
+              padding: "8px 20px", borderRadius: 9, border: "none", cursor: "pointer",
+              fontFamily: "'Space Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: 1,
+              background: tab === t.id ? "linear-gradient(135deg, #0078D4, #0063B1)" : "transparent",
+              color: tab === t.id ? "#fff" : "#94A3B8",
+              boxShadow: tab === t.id ? "0 4px 14px rgba(0,120,212,0.4)" : "none",
+            }}>{t.label}</button>
+          ))}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+
+  /* ── TAB 1: WORKFLOW ── */
+  if (tab === "workflow") return page(
+    <div className="section-anim">
+      <SectionTitle icon={<AzureIcon size={18} />} accent="#0078D4">
+        Application Request Flow · Azure Container Apps
+      </SectionTitle>
+
+      <div style={{ display: "flex", gap: 36, alignItems: "flex-start", flexWrap: "wrap" }}>
+        {/* Flow Column */}
+        <div style={{ flex: "1 1 340px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+
+          <GlassCard style={{ padding: "14px 28px", textAlign: "center", width: "100%", maxWidth: 280 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center" }}>
+              <span style={{ fontSize: 24 }}>🌐</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#F1F5F9" }}>Internet Users</div>
+                <div style={{ fontSize: 9, color: "#64748B" }}>HTTPS Requests</div>
+              </div>
+            </div>
+          </GlassCard>
+
+          <FlowArrow color="#50E6FF" label="HTTPS" />
+          <ServiceNode name="frontend" url="app.apiswagger.co.uk" external={true} color="#F59E0B" emoji="⚡" />
+          <FlowArrow color="#0078D4" label="API Calls" />
+          <ServiceNode name="gateway" url="gateway.apiswagger.co.uk" external={true} color="#0078D4" emoji="🔀" />
+
+          <div style={{ width: 2, height: 22, background: "linear-gradient(to bottom, #0078D4, #0078D422)", margin: "2px 0" }} />
+
+          {/* ACA environment box */}
+          <div style={{
+            background: "rgba(0,120,212,0.05)", border: "1px solid rgba(0,120,212,0.18)",
+            borderRadius: 20, padding: "20px 18px", width: "100%", maxWidth: 520,
+          }}>
+            <div style={{ textAlign: "center", marginBottom: 14 }}>
+              <div style={{ fontSize: 10, color: "#0078D4", letterSpacing: 2, textTransform: "uppercase" }}>
+                Azure Container App Environment · agentic-dev
+              </div>
+              <div style={{ fontSize: 9, color: "#475569", marginTop: 2 }}>Internal Network · Private Ingress</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+              {INTERNAL.map(svc => (
+                <ServiceNode key={svc.name} name={svc.name} external={false} color="#10B981" emoji="📦" small />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Panels */}
+        <div style={{ width: 270, display: "flex", flexDirection: "column", gap: 14, flexShrink: 0 }}>
+          <GlassCard>
+            <div style={{ fontSize: 11, color: "#F59E0B", fontWeight: 700, marginBottom: 12, letterSpacing: 1 }}>PUBLIC ENDPOINTS</div>
+            {[
+              { name: "frontend", url: "app.apiswagger.co.uk",     port: 3000 },
+              { name: "gateway",  url: "gateway.apiswagger.co.uk", port: 8080 },
+            ].map(e => (
+              <div key={e.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                <div>
+                  <div style={{ fontSize: 11, color: "#E2E8F0", fontWeight: 700 }}>{e.name}</div>
+                  <div style={{ fontSize: 9, color: "#64748B", fontFamily: "monospace" }}>{e.url}</div>
+                </div>
+                <div style={{ fontSize: 9, color: "#F59E0B", background: "rgba(245,158,11,0.1)", borderRadius: 4, padding: "2px 6px" }}>:{e.port}</div>
+              </div>
+            ))}
+          </GlassCard>
+
+          <GlassCard>
+            <div style={{ fontSize: 11, color: "#10B981", fontWeight: 700, marginBottom: 12, letterSpacing: 1 }}>INTERNAL SERVICES</div>
+            {INTERNAL.map(svc => (
+              <div key={svc.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <PulseDot color="#10B981" size={4} />
+                <span style={{ fontSize: 11, color: "#94A3B8" }}>{svc.name}</span>
+                <span style={{ marginLeft: "auto", fontSize: 8, color: "#475569", fontFamily: "monospace" }}>PRIVATE</span>
+              </div>
+            ))}
+          </GlassCard>
+
+          <GlassCard>
+            <div style={{ fontSize: 11, color: "#0078D4", fontWeight: 700, marginBottom: 10, letterSpacing: 1 }}>ENVIRONMENT</div>
+            {[["Environment","agentic-dev"],["Platform","Azure Container Apps"],["Region","UK South"],["Services","7 apps"]].map(([k,v]) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 10, color: "#64748B" }}>{k}</span>
+                <span style={{ fontSize: 10, color: "#CBD5E1", fontFamily: "monospace" }}>{v}</span>
+              </div>
+            ))}
+          </GlassCard>
+        </div>
+      </div>
+    </div>
+  );
+
+  /* ── TAB 2: CI/CD ── */
+  if (tab === "cicd") return page(
+    <div className="section-anim">
+      <SectionTitle icon={<GithubIcon size={18} color="#8B5CF6" />} accent="#8B5CF6">
+        CI/CD Pipeline · GitHub Actions → Azure
+      </SectionTitle>
+
+      {/* Pipeline Row */}
+      <GlassCard style={{ padding: "28px 24px", marginBottom: 24, overflowX: "auto" }} noHover>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, minWidth: 740 }}>
+          <PipelineStep step={1} color="#8B5CF6" emoji="👨‍💻" label="Developer"     sublabel="git push" />
+          <PipeArrow from="#8B5CF6" to="#6366F1" />
+          <PipelineStep step={2} color="#6366F1" emoji="🐙" label="GitHub Repo"   sublabel="main branch" />
+          <PipeArrow from="#6366F1" to="#0078D4" />
+          <PipelineStep step={3} color="#0078D4" emoji="⚡" label="GitHub Actions" sublabel="workflow trigger" />
+          <PipeArrow from="#0078D4" to="#099CEC" />
+          <PipelineStep step={4} color="#099CEC" emoji="🐳" label="Docker Build"  sublabel="image:tag" />
+          <PipeArrow from="#099CEC" to="#50E6FF" />
+          <PipelineStep step={5} color="#50E6FF" emoji="☁️" label="Azure ACR"     sublabel="push image" />
+          <PipeArrow from="#50E6FF" to="#10B981" />
+          <PipelineStep step={6} color="#10B981" emoji="✅" label="ACA Deploy"    sublabel="agentic-dev" />
+        </div>
+      </GlassCard>
+
+      {/* Stage Detail Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 24 }}>
+        {[
+          { title: "Source Stage", color: "#8B5CF6", badge: "TRIGGER", steps: ["git commit -m 'feat: ...'", "git push origin main", "PR merged → trigger"] },
+          { title: "Build Stage",  color: "#099CEC", badge: "BUILD",   steps: ["actions/checkout@v3", "docker build -t image:$SHA .", "docker tag image acr.azurecr.io/..."] },
+          { title: "Deploy Stage", color: "#10B981", badge: "DEPLOY",  steps: ["az acr login", "docker push acr.azurecr.io/...", "az containerapp update --image ..."] },
+        ].map(stage => (
+          <GlassCard key={stage.title}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: stage.color }}>{stage.title}</span>
+              <span style={{ fontSize: 8, color: stage.color, background: `${stage.color}22`, border: `1px solid ${stage.color}44`, borderRadius: 4, padding: "2px 6px" }}>{stage.badge}</span>
+            </div>
+            {stage.steps.map((s, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 10px", background: "rgba(0,0,0,0.3)", borderRadius: 6 }}>
+                <span style={{ fontSize: 10, color: "#475569", fontFamily: "monospace" }}>{String(i + 1).padStart(2, "0")}</span>
+                <span style={{ fontSize: 10, color: "#94A3B8", fontFamily: "monospace" }}>{s}</span>
+              </div>
+            ))}
+          </GlassCard>
+        ))}
+      </div>
+
+      {/* Deployment Matrix */}
+      <div style={{ fontSize: 10, color: "#64748B", letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>Service Deployment Matrix</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
+        {SERVICES.map(svc => (
+          <GlassCard key={svc.name} style={{ padding: 14, textAlign: "center" }}>
+            <ContainerIcon size={20} color={svc.ingress === "External" ? "#F59E0B" : "#10B981"} />
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#E2E8F0", marginTop: 6 }}>{svc.name}</div>
+            <div style={{ fontSize: 8, color: "#475569", marginTop: 4, fontFamily: "monospace" }}>:{svc.port}</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 8 }}>
+              <PulseDot color="#10B981" size={4} />
+              <span style={{ fontSize: 8, color: "#10B981" }}>DEPLOYED</span>
+            </div>
+          </GlassCard>
+        ))}
+      </div>
+    </div>
+  );
+
+  /* ── TAB 3: INFRASTRUCTURE ── */
+  return page(
+    <div className="section-anim">
+      <SectionTitle icon={<ContainerIcon size={18} color="#50E6FF" />} accent="#50E6FF">
+        Container App Infrastructure · agentic-dev
+      </SectionTitle>
+
+      {/* Environment Banner */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16,
+        padding: "14px 20px", marginBottom: 24,
+        background: "linear-gradient(135deg, rgba(0,120,212,0.15), rgba(80,230,255,0.05))",
+        border: "1px solid rgba(0,120,212,0.3)", borderRadius: 14,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <AzureIcon size={28} />
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#F1F5F9" }}>agentic-dev</div>
+            <div style={{ fontSize: 10, color: "#0078D4" }}>Azure Container App Environment · UK South</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+          {[["Total Apps","7"],["External","2"],["Internal","5"],["Status","Healthy"]].map(([k,v]) => (
+            <div key={k} style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#50E6FF" }}>{v}</div>
+              <div style={{ fontSize: 9, color: "#64748B", textTransform: "uppercase", letterSpacing: 1 }}>{k}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* External */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 10, color: "#F59E0B", letterSpacing: 2, textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+          <GlobeIcon size={12} color="#F59E0B" /> External Ingress (Public)
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+          {SERVICES.filter(s => s.ingress === "External").map(s => <InfraCard key={s.name} service={s} />)}
+        </div>
+      </div>
+
+      <div style={{ height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.07), transparent)", margin: "20px 0" }} />
+
+      {/* Internal */}
+      <div>
+        <div style={{ fontSize: 10, color: "#10B981", letterSpacing: 2, textTransform: "uppercase", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+          <ShieldIcon size={12} color="#10B981" /> Internal Services (Private Network)
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14 }}>
+          {SERVICES.filter(s => s.ingress === "Internal").map(s => <InfraCard key={s.name} service={s} />)}
+        </div>
+      </div>
+
+      {/* Legend */}
+      <GlassCard style={{ marginTop: 22, padding: "16px 20px" }} noHover>
+        <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+          {[
+            { color: "#F59E0B", label: "External Ingress",  desc: "Public HTTPS, Custom domain via Azure Front Door DNS" },
+            { color: "#10B981", label: "Internal Ingress",  desc: "Private within agentic-dev VNet, no public exposure" },
+            { color: "#0078D4", label: "Service Discovery", desc: "Internal DNS: <service>.internal.agentic-dev.azurecontainerapps.io" },
+          ].map(item => (
+            <div key={item.label} style={{ display: "flex", gap: 10, flex: "1 1 200px" }}>
+              <div style={{ width: 3, borderRadius: 2, background: item.color, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: item.color, marginBottom: 3 }}>{item.label}</div>
+                <div style={{ fontSize: 10, color: "#64748B" }}>{item.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </GlassCard>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>
