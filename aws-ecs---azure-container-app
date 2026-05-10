@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AWS ECS Fargate → Azure Equivalent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --aws: #FF9900;
+  --aws-dark: #c47700;
+  --azure: #0078D4;
+  --azure-dark: #005fa3;
+  --bg: #07090f;
+  --surface: #0e1117;
+  --surface2: #141820;
+  --border: rgba(255,255,255,0.07);
+  --text: #e8eaf0;
+  --muted: #6b7280;
+  --mono: 'IBM Plex Mono', monospace;
+  --display: 'Syne', sans-serif;
+  --body: 'Inter', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 40px; height: 60px;
+  background: rgba(7,9,15,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-brand {
+  font-family: var(--mono); font-size: 13px; font-weight: 500;
+  display: flex; align-items: center; gap: 10px;
+}
+.nav-brand span.aws { color: var(--aws); }
+.nav-brand span.az  { color: var(--azure); }
+.nav-links { display: flex; gap: 28px; list-style: none; }
+.nav-links a {
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  text-decoration: none; text-transform: uppercase; letter-spacing: .08em;
+  transition: color .2s;
+}
+.nav-links a:hover { color: var(--text); }
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 80px 40px 60px;
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 50%, rgba(255,153,0,.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 50%, rgba(0,120,212,.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-tag {
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .15em;
+  border: 1px solid var(--border); border-radius: 20px;
+  padding: 5px 16px; margin-bottom: 28px; display: inline-block;
+}
+.hero h1 {
+  font-family: var(--display); font-size: clamp(36px, 6vw, 76px);
+  font-weight: 800; line-height: 1.05; margin-bottom: 20px;
+  letter-spacing: -.02em;
+}
+.hero h1 .aws { color: var(--aws); }
+.hero h1 .az  { color: var(--azure); }
+.hero h1 .arrow { color: var(--muted); margin: 0 8px; }
+.hero-sub {
+  font-size: 17px; color: var(--muted); max-width: 560px;
+  margin: 0 auto 40px;
+}
+.btn-group { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.btn {
+  font-family: var(--mono); font-size: 12px; text-transform: uppercase;
+  letter-spacing: .08em; text-decoration: none;
+  padding: 10px 24px; border-radius: 6px;
+  border: 1px solid var(--border); transition: all .2s;
+}
+.btn-aws  { background: rgba(255,153,0,.12); color: var(--aws); border-color: rgba(255,153,0,.3); }
+.btn-aws:hover  { background: rgba(255,153,0,.22); }
+.btn-azure { background: rgba(0,120,212,.12); color: var(--azure); border-color: rgba(0,120,212,.3); }
+.btn-azure:hover { background: rgba(0,120,212,.22); }
+
+/* ── SECTION ── */
+section { padding: 90px 40px; max-width: 1160px; margin: 0 auto; }
+.section-label {
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .15em; margin-bottom: 12px;
+}
+.section-title {
+  font-family: var(--display); font-size: clamp(26px, 3.5vw, 44px);
+  font-weight: 800; line-height: 1.1; margin-bottom: 48px;
+}
+.section-title .hl-aws   { color: var(--aws); }
+.section-title .hl-azure { color: var(--azure); }
+
+/* ── MAPPING TABLE ── */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface);
+}
+table { width: 100%; border-collapse: collapse; }
+thead tr { border-bottom: 1px solid var(--border); }
+th {
+  font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--muted); padding: 14px 20px; text-align: left;
+}
+td { padding: 13px 20px; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 14px; }
+tr:last-child td { border-bottom: none; }
+.aws-cell  { color: var(--aws);   font-family: var(--mono); font-size: 13px; }
+.azure-cell { color: var(--azure); font-family: var(--mono); font-size: 13px; }
+.badge {
+  font-family: var(--mono); font-size: 10px; padding: 2px 8px;
+  border-radius: 4px; display: inline-block; margin-top: 2px;
+}
+.badge-aws   { background: rgba(255,153,0,.12); color: var(--aws);   border: 1px solid rgba(255,153,0,.25); }
+.badge-azure { background: rgba(0,120,212,.12); color: var(--azure); border: 1px solid rgba(0,120,212,.25); }
+
+/* ── ARCHITECTURE DIAGRAMS ── */
+.arch-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+  margin-top: 12px;
+}
+@media (max-width: 860px) { .arch-grid { grid-template-columns: 1fr; } }
+
+.arch-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; overflow: hidden;
+}
+.arch-card-header {
+  padding: 18px 24px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.arch-card-header .pill {
+  font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+  letter-spacing: .1em; padding: 3px 10px; border-radius: 20px;
+}
+.pill-aws   { background: rgba(255,153,0,.15); color: var(--aws);   border: 1px solid rgba(255,153,0,.3); }
+.pill-azure { background: rgba(0,120,212,.15); color: var(--azure); border: 1px solid rgba(0,120,212,.3); }
+.arch-card-header h3 { font-family: var(--display); font-size: 16px; font-weight: 700; }
+.arch-card-body { padding: 24px; }
+
+/* SVG diagram containers */
+.diag-svg { width: 100%; height: auto; }
+
+/* AWS diagram colors */
+.aws-node rect    { fill: #1a1200; stroke: var(--aws); stroke-width: 1; rx: 8; }
+.aws-node text    { fill: #e8eaf0; font-family: var(--body); }
+.aws-container    { fill: rgba(255,153,0,.04); stroke: rgba(255,153,0,.25); stroke-dasharray: 5 3; }
+.aws-line         { stroke: rgba(255,153,0,.5); stroke-width: 1.5; fill: none; marker-end: url(#aws-arrow); }
+.aws-user rect    { fill: rgba(255,255,255,.05); stroke: rgba(255,255,255,.2); }
+
+/* Azure diagram colors */
+.az-node rect     { fill: #00101f; stroke: var(--azure); stroke-width: 1; }
+.az-node text     { fill: #e8eaf0; font-family: var(--body); }
+.az-container     { fill: rgba(0,120,212,.04); stroke: rgba(0,120,212,.25); stroke-dasharray: 5 3; }
+.az-line          { stroke: rgba(0,120,212,.5); stroke-width: 1.5; fill: none; marker-end: url(#az-arrow); }
+.az-user rect     { fill: rgba(255,255,255,.05); stroke: rgba(255,255,255,.2); }
+
+/* ── COMPONENTS GRID ── */
+.comp-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px; margin-top: 8px;
+}
+.comp-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 22px;
+  transition: border-color .2s, transform .2s;
+}
+.comp-card:hover { transform: translateY(-3px); }
+.comp-card.aws-card  { border-color: rgba(255,153,0,.2); }
+.comp-card.azure-card { border-color: rgba(0,120,212,.2); }
+.comp-card:hover.aws-card  { border-color: rgba(255,153,0,.5); }
+.comp-card:hover.azure-card { border-color: rgba(0,120,212,.5); }
+.comp-icon { font-size: 28px; margin-bottom: 12px; }
+.comp-replaces {
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px;
+}
+.comp-name { font-family: var(--display); font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+.comp-desc { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+.comp-list { list-style: none; font-size: 12px; color: var(--muted); }
+.comp-list li { padding: 3px 0; }
+.comp-list li::before { content: '→ '; color: var(--azure); }
+.comp-list li.aws-li::before { color: var(--aws); }
+
+/* ── PIPELINE ── */
+.pipeline {
+  display: flex; flex-wrap: wrap; gap: 0; margin-top: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  overflow: hidden;
+}
+.pipe-step {
+  flex: 1; min-width: 140px;
+  padding: 26px 20px; text-align: center;
+  border-right: 1px solid var(--border); position: relative;
+}
+.pipe-step:last-child { border-right: none; }
+.pipe-step::after {
+  content: '→';
+  position: absolute; right: -10px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--azure); font-size: 16px; z-index: 2;
+}
+.pipe-step:last-child::after { display: none; }
+.pipe-num {
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  margin-bottom: 8px;
+}
+.pipe-icon { font-size: 24px; margin-bottom: 8px; }
+.pipe-title { font-family: var(--display); font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.pipe-sub { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+
+/* ── RECOMMENDATION ── */
+.rec-box {
+  background: linear-gradient(135deg, rgba(0,120,212,.08), rgba(0,120,212,.02));
+  border: 1px solid rgba(0,120,212,.25); border-radius: 16px;
+  padding: 40px;
+}
+.rec-alert {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(0,120,212,.15); border: 1px solid rgba(0,120,212,.3);
+  border-radius: 8px; padding: 10px 18px; margin-bottom: 28px;
+  font-family: var(--mono); font-size: 12px; color: var(--azure);
+}
+.rec-stack { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.rec-item {
+  background: rgba(0,120,212,.1); border: 1px solid rgba(0,120,212,.25);
+  border-radius: 8px; padding: 8px 16px;
+  font-family: var(--mono); font-size: 12px; color: var(--azure);
+}
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border); padding: 30px 40px;
+  text-align: center; font-family: var(--mono); font-size: 11px; color: var(--muted);
+}
+footer span.aws { color: var(--aws); }
+footer span.az  { color: var(--azure); }
+
+/* ── DIVIDER ── */
+.divider {
+  border: none; border-top: 1px solid var(--border);
+  max-width: 1160px; margin: 0 auto;
+}
+
+/* ── SCROLL FADE IN ── */
+.fade-in { opacity: 0; transform: translateY(24px); transition: opacity .6s, transform .6s; }
+.fade-in.visible { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <span class="aws">AWS</span>
+    <span style="color:var(--muted)">→</span>
+    <span class="az">Azure</span>
+    <span style="color:var(--muted);margin-left:4px">Migration Guide</span>
+  </div>
+  <ul class="nav-links">
+    <li><a href="#mapping">Mapping</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#components">Components</a></li>
+    <li><a href="#deployment">Deployment</a></li>
+    <li><a href="#recommendation">Recommendation</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">Container Migration Guide</div>
+  <h1>
+    <span class="aws">AWS ECS Fargate</span>
+    <span class="arrow">→</span>
+    <span class="az">Azure</span>
+  </h1>
+  <p class="hero-sub">
+    A complete architecture mapping from AWS serverless container infrastructure to Azure's equivalent services — component by component.
+  </p>
+  <div class="btn-group">
+    <a href="#mapping"        class="btn btn-aws">View Mapping</a>
+    <a href="#architecture"   class="btn btn-azure">Architecture</a>
+    <a href="#recommendation" class="btn btn-azure">Recommendation</a>
+  </div>
+</div>
+
+<!-- MAPPING TABLE -->
+<section id="mapping" class="fade-in">
+  <div class="section-label">Service Equivalents</div>
+  <div class="section-title">AWS → Azure <span class="hl-aws">Direct</span> Mapping</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>☁ AWS Service</th>
+          <th>⬡ Azure Equivalent</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="aws-cell">🐳 ECS Fargate</div></td>
+          <td><div class="azure-cell">📦 Azure Container Apps</div></td>
+          <td>Serverless container runtime</td>
+        </tr>
+        <tr>
+          <td><div class="aws-cell">📋 Task Definition</div></td>
+          <td><div class="azure-cell">⚙️ Container App Config (Revision)</div></td>
+          <td>Blueprint for container — image, CPU, memory, ports, env</td>
+        </tr>
+        <tr>
+          <td><div class="aws-cell">▶️ Task (Running)</div></td>
+          <td><div class="azure-cell">🔄 Container App Replica</div></td>
+          <td>A running instance of your container</td>
+        </tr>
+        <tr>
+          <td><div class="aws-cell">🔧 ECS Service</div></td>
+          <td><div class="azure-cell">🚀 Azure Container App</div></td>
+          <td>Manages replicas, scaling, restarts</td>
+        </tr>
+        <tr>
+          <td><div class="aws-cell">⚖️ ALB (Load Balancer)</div></td>
+          <td><div class="azure-cell">🌐 Azure Application Gateway</div></td>
+          <td>Layer 7 HTTP/HTTPS traffic routing</td>
+        </tr>
+        <tr>
+          <td><div class="aws-cell">🎯 Target Group</div></td>
+          <td><div class="azure-cell">🗂️ Backend Pool</div></td>
+          <td>Routes traffic to backend containers</td>
+        </tr>
+        <tr>
+          <td><div class="aws-cell">🗃️ ECR</div></td>
+          <td><div class="azure-cell">🗄️ Azure Container Registry</div></td>
+          <td>Private Docker image storage</td>
+        </tr>
+        <tr>
+          <td><div class="aws-cell">📊 CloudWatch</div></td>
+          <td><div class="azure-cell">📈 Azure Monitor</div></td>
+          <td>Logs, metrics, and monitoring</td>
+        </tr>
+        <tr>
+          <td><div class="aws-cell">📏 ECS Auto Scaling</div></td>
+          <td><div class="azure-cell">⚡ KEDA Autoscaling</div></td>
+          <td>Scale based on CPU, memory, events</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- ARCHITECTURE -->
+<section id="architecture" class="fade-in">
+  <div class="section-label">Architecture Comparison</div>
+  <div class="section-title">Side-by-Side <span class="hl-azure">Architecture</span> Diagrams</div>
+
+  <div class="arch-grid">
+
+    <!-- AWS ECS Fargate Diagram -->
+    <div class="arch-card">
+      <div class="arch-card-header">
+        <span class="pill pill-aws">AWS</span>
+        <h3>ECS Fargate Architecture</h3>
+      </div>
+      <div class="arch-card-body">
+        <svg class="diag-svg" viewBox="0 0 420 580" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="aws-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 1L8 5L2 9" fill="none" stroke="#FF9900" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+
+          <!-- Internet -->
+          <rect x="130" y="16" width="160" height="40" rx="8" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+          <text x="210" y="32" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="12" font-weight="700">🌐 Internet / Users</text>
+          <text x="210" y="47" text-anchor="middle" dominant-baseline="central" fill="#6b7280" font-family="'IBM Plex Mono',monospace" font-size="10">HTTPS requests</text>
+
+          <line x1="210" y1="56" x2="210" y2="88" stroke="rgba(255,153,0,.5)" stroke-width="1.5" fill="none" marker-end="url(#aws-arrow)"/>
+
+          <!-- ALB -->
+          <rect x="80" y="88" width="260" height="52" rx="8" fill="#1a1200" stroke="#FF9900" stroke-width="1"/>
+          <text x="210" y="107" text-anchor="middle" dominant-baseline="central" fill="#FF9900" font-family="'IBM Plex Mono',monospace" font-size="10" font-weight="500">APPLICATION LOAD BALANCER</text>
+          <text x="210" y="123" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="12" font-weight="700">⚖️ ALB</text>
+          <text x="340" y="114" text-anchor="end" fill="#6b7280" font-family="'IBM Plex Mono',monospace" font-size="9">Routes HTTP/S</text>
+
+          <line x1="210" y1="140" x2="210" y2="172" stroke="rgba(255,153,0,.5)" stroke-width="1.5" fill="none" marker-end="url(#aws-arrow)"/>
+
+          <!-- Target Group -->
+          <rect x="90" y="172" width="240" height="52" rx="8" fill="#1a1200" stroke="#FF9900" stroke-width="1"/>
+          <text x="210" y="191" text-anchor="middle" dominant-baseline="central" fill="#FF9900" font-family="'IBM Plex Mono',monospace" font-size="10" font-weight="500">TARGET GROUP</text>
+          <text x="210" y="208" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="12" font-weight="700">🎯 Health checks · routing</text>
+
+          <line x1="210" y1="224" x2="210" y2="256" stroke="rgba(255,153,0,.5)" stroke-width="1.5" fill="none" marker-end="url(#aws-arrow)"/>
+
+          <!-- ECS Cluster container -->
+          <rect x="20" y="256" width="380" height="300" rx="14" fill="rgba(255,153,0,.03)" stroke="rgba(255,153,0,.2)" stroke-width="1" stroke-dasharray="6 3"/>
+          <text x="34" y="275" fill="#FF9900" font-family="'IBM Plex Mono',monospace" font-size="10" opacity="0.7">ECS CLUSTER (FARGATE)</text>
+
+          <!-- ECS Service -->
+          <rect x="90" y="284" width="240" height="52" rx="8" fill="#1a1200" stroke="#FF9900" stroke-width="1"/>
+          <text x="210" y="303" text-anchor="middle" dominant-baseline="central" fill="#FF9900" font-family="'IBM Plex Mono',monospace" font-size="10" font-weight="500">ECS SERVICE</text>
+          <text x="210" y="320" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="12" font-weight="700">🔧 Desired count · scaling</text>
+
+          <line x1="210" y1="336" x2="210" y2="368" stroke="rgba(255,153,0,.5)" stroke-width="1.5" fill="none" marker-end="url(#aws-arrow)"/>
+
+          <!-- Task Definition -->
+          <rect x="90" y="368" width="240" height="52" rx="8" fill="#1a1200" stroke="#FF9900" stroke-width="1"/>
+          <text x="210" y="387" text-anchor="middle" dominant-baseline="central" fill="#FF9900" font-family="'IBM Plex Mono',monospace" font-size="10" font-weight="500">TASK DEFINITION</text>
+          <text x="210" y="404" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="12" font-weight="700">📋 CPU · memory · image</text>
+
+          <!-- Arrows to tasks -->
+          <line x1="155" y1="420" x2="80" y2="456" stroke="rgba(255,153,0,.5)" stroke-width="1.5" fill="none" marker-end="url(#aws-arrow)"/>
+          <line x1="210" y1="420" x2="210" y2="456" stroke="rgba(255,153,0,.5)" stroke-width="1.5" fill="none" marker-end="url(#aws-arrow)"/>
+          <line x1="265" y1="420" x2="340" y2="456" stroke="rgba(255,153,0,.5)" stroke-width="1.5" fill="none" marker-end="url(#aws-arrow)"/>
+
+          <!-- Tasks -->
+          <rect x="30" y="456" width="100" height="44" rx="8" fill="#1a1200" stroke="#FF9900" stroke-width="1"/>
+          <text x="80" y="472" text-anchor="middle" dominant-baseline="central" fill="#FF9900" font-family="'IBM Plex Mono',monospace" font-size="9">TASK 1</text>
+          <text x="80" y="486" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="11">🐳 Container</text>
+
+          <rect x="160" y="456" width="100" height="44" rx="8" fill="#1a1200" stroke="#FF9900" stroke-width="1"/>
+          <text x="210" y="472" text-anchor="middle" dominant-baseline="central" fill="#FF9900" font-family="'IBM Plex Mono',monospace" font-size="9">TASK 2</text>
+          <text x="210" y="486" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="11">🐳 Container</text>
+
+          <rect x="290" y="456" width="100" height="44" rx="8" fill="#1a1200" stroke="#FF9900" stroke-width="1"/>
+          <text x="340" y="472" text-anchor="middle" dominant-baseline="central" fill="#FF9900" font-family="'IBM Plex Mono',monospace" font-size="9">TASK 3</text>
+          <text x="340" y="486" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="11">🐳 Container</text>
+
+          <!-- Serverless label -->
+          <rect x="30" y="516" width="130" height="22" rx="5" fill="rgba(255,153,0,.1)" stroke="rgba(255,153,0,.25)" stroke-width="1"/>
+          <text x="95" y="527" text-anchor="middle" dominant-baseline="central" fill="#FF9900" font-family="'IBM Plex Mono',monospace" font-size="9">Serverless compute</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Azure Container Apps Diagram -->
+    <div class="arch-card">
+      <div class="arch-card-header">
+        <span class="pill pill-azure">Azure</span>
+        <h3>Container Apps Architecture</h3>
+      </div>
+      <div class="arch-card-body">
+        <svg class="diag-svg" viewBox="0 0 420 580" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="az-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 1L8 5L2 9" fill="none" stroke="#0078D4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+
+          <!-- Internet -->
+          <rect x="130" y="16" width="160" height="40" rx="8" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+          <text x="210" y="32" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="12" font-weight="700">🌐 Internet / Users</text>
+          <text x="210" y="47" text-anchor="middle" dominant-baseline="central" fill="#6b7280" font-family="'IBM Plex Mono',monospace" font-size="10">HTTPS requests</text>
+
+          <line x1="210" y1="56" x2="210" y2="88" stroke="rgba(0,120,212,.5)" stroke-width="1.5" fill="none" marker-end="url(#az-arrow)"/>
+
+          <!-- Application Gateway -->
+          <rect x="60" y="88" width="300" height="52" rx="8" fill="#00101f" stroke="#0078D4" stroke-width="1"/>
+          <text x="210" y="107" text-anchor="middle" dominant-baseline="central" fill="#0078D4" font-family="'IBM Plex Mono',monospace" font-size="10" font-weight="500">APPLICATION GATEWAY ≈ ALB</text>
+          <text x="210" y="123" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="12" font-weight="700">🌐 Layer 7 · WAF · SSL termination</text>
+
+          <line x1="210" y1="140" x2="210" y2="172" stroke="rgba(0,120,212,.5)" stroke-width="1.5" fill="none" marker-end="url(#az-arrow)"/>
+
+          <!-- Backend Pool -->
+          <rect x="80" y="172" width="260" height="52" rx="8" fill="#00101f" stroke="#0078D4" stroke-width="1"/>
+          <text x="210" y="191" text-anchor="middle" dominant-baseline="central" fill="#0078D4" font-family="'IBM Plex Mono',monospace" font-size="10" font-weight="500">BACKEND POOL ≈ TARGET GROUP</text>
+          <text x="210" y="208" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="12" font-weight="700">🗂️ Health probes · routing</text>
+
+          <line x1="210" y1="224" x2="210" y2="256" stroke="rgba(0,120,212,.5)" stroke-width="1.5" fill="none" marker-end="url(#az-arrow)"/>
+
+          <!-- Container Apps Environment -->
+          <rect x="20" y="256" width="380" height="300" rx="14" fill="rgba(0,120,212,.03)" stroke="rgba(0,120,212,.2)" stroke-width="1" stroke-dasharray="6 3"/>
+          <text x="34" y="275" fill="#0078D4" font-family="'IBM Plex Mono',monospace" font-size="10" opacity="0.7">CONTAINER APPS ENVIRONMENT ≈ ECS CLUSTER</text>
+
+          <!-- Container App -->
+          <rect x="80" y="284" width="260" height="52" rx="8" fill="#00101f" stroke="#0078D4" stroke-width="1"/>
+          <text x="210" y="303" text-anchor="middle" dominant-baseline="central" fill="#0078D4" font-family="'IBM Plex Mono',monospace" font-size="10" font-weight="500">CONTAINER APP ≈ ECS SERVICE</text>
+          <text x="210" y="320" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="12" font-weight="700">🚀 KEDA scaling · ingress</text>
+
+          <line x1="210" y1="336" x2="210" y2="368" stroke="rgba(0,120,212,.5)" stroke-width="1.5" fill="none" marker-end="url(#az-arrow)"/>
+
+          <!-- Revision -->
+          <rect x="80" y="368" width="260" height="52" rx="8" fill="#00101f" stroke="#0078D4" stroke-width="1"/>
+          <text x="210" y="387" text-anchor="middle" dominant-baseline="central" fill="#0078D4" font-family="'IBM Plex Mono',monospace" font-size="10" font-weight="500">REVISION ≈ TASK DEFINITION</text>
+          <text x="210" y="404" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="12" font-weight="700">⚙️ Image · CPU · memory</text>
+
+          <!-- Arrows to replicas -->
+          <line x1="155" y1="420" x2="80" y2="456" stroke="rgba(0,120,212,.5)" stroke-width="1.5" fill="none" marker-end="url(#az-arrow)"/>
+          <line x1="210" y1="420" x2="210" y2="456" stroke="rgba(0,120,212,.5)" stroke-width="1.5" fill="none" marker-end="url(#az-arrow)"/>
+          <line x1="265" y1="420" x2="340" y2="456" stroke="rgba(0,120,212,.5)" stroke-width="1.5" fill="none" marker-end="url(#az-arrow)"/>
+
+          <!-- Replicas -->
+          <rect x="30" y="456" width="100" height="44" rx="8" fill="#00101f" stroke="#0078D4" stroke-width="1"/>
+          <text x="80" y="472" text-anchor="middle" dominant-baseline="central" fill="#0078D4" font-family="'IBM Plex Mono',monospace" font-size="9">REPLICA 1</text>
+          <text x="80" y="486" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="11">📦 Container</text>
+
+          <rect x="160" y="456" width="100" height="44" rx="8" fill="#00101f" stroke="#0078D4" stroke-width="1"/>
+          <text x="210" y="472" text-anchor="middle" dominant-baseline="central" fill="#0078D4" font-family="'IBM Plex Mono',monospace" font-size="9">REPLICA 2</text>
+          <text x="210" y="486" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="11">📦 Container</text>
+
+          <rect x="290" y="456" width="100" height="44" rx="8" fill="#00101f" stroke="#0078D4" stroke-width="1"/>
+          <text x="340" y="472" text-anchor="middle" dominant-baseline="central" fill="#0078D4" font-family="'IBM Plex Mono',monospace" font-size="9">REPLICA 3</text>
+          <text x="340" y="486" text-anchor="middle" dominant-baseline="central" fill="#e8eaf0" font-family="'Syne',sans-serif" font-size="11">📦 Container</text>
+
+          <!-- Serverless label -->
+          <rect x="30" y="516" width="150" height="22" rx="5" fill="rgba(0,120,212,.1)" stroke="rgba(0,120,212,.25)" stroke-width="1"/>
+          <text x="105" y="527" text-anchor="middle" dominant-baseline="central" fill="#0078D4" font-family="'IBM Plex Mono',monospace" font-size="9">Serverless · managed infra</text>
+        </svg>
+      </div>
+    </div>
+
+  </div><!-- end arch-grid -->
+
+  <!-- Code comparison -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px;">
+    <div style="background:var(--surface);border:1px solid rgba(255,153,0,.2);border-radius:12px;padding:24px;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--aws);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;">AWS · Host-Based Routing</div>
+      <pre style="font-family:var(--mono);font-size:12px;color:#9ca3af;line-height:1.8;overflow-x:auto;">ALB
+├── Host Rule → api.example.com
+│   └── Target Group API
+└── Host Rule → app.example.com
+    └── Target Group FE</pre>
+    </div>
+    <div style="background:var(--surface);border:1px solid rgba(0,120,212,.2);border-radius:12px;padding:24px;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--azure);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;">Azure · Host-Based Routing</div>
+      <pre style="font-family:var(--mono);font-size:12px;color:#9ca3af;line-height:1.8;overflow-x:auto;">Application Gateway
+├── Listener → api.example.com
+│   └── Backend Pool API
+└── Listener → app.example.com
+    └── Backend Pool FE</pre>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- COMPONENTS -->
+<section id="components" class="fade-in">
+  <div class="section-label">Azure Services</div>
+  <div class="section-title">Key Azure <span class="hl-azure">Components</span></div>
+  <div class="comp-grid">
+
+    <div class="comp-card azure-card">
+      <div class="comp-icon">📦</div>
+      <div class="comp-replaces">Replaces ECS Fargate</div>
+      <div class="comp-name" style="color:var(--azure)">Azure Container Apps</div>
+      <div class="comp-desc">Serverless container platform, closest equivalent to ECS Fargate. No VM management required.</div>
+      <ul class="comp-list">
+        <li>Serverless, no VM management</li>
+        <li>Built-in autoscaling (KEDA)</li>
+        <li>Revision-based deployments</li>
+        <li>Scale to zero</li>
+      </ul>
+    </div>
+
+    <div class="comp-card azure-card">
+      <div class="comp-icon">🌐</div>
+      <div class="comp-replaces">Replaces ALB + Target Group</div>
+      <div class="comp-name" style="color:var(--azure)">Azure Application Gateway</div>
+      <div class="comp-desc">Layer 7 load balancer with advanced routing, WAF, and SSL termination capabilities.</div>
+      <ul class="comp-list">
+        <li>Layer 7 load balancing</li>
+        <li>SSL/TLS termination</li>
+        <li>Web Application Firewall</li>
+        <li>Backend Pool (= Target Group)</li>
+      </ul>
+    </div>
+
+    <div class="comp-card azure-card">
+      <div class="comp-icon">🗄️</div>
+      <div class="comp-replaces">Replaces AWS ECR</div>
+      <div class="comp-name" style="color:var(--azure)">Azure Container Registry</div>
+      <div class="comp-desc">Private Docker image registry, fully integrated with Azure Container Apps and AKS.</div>
+      <ul class="comp-list">
+        <li>Private container registry</li>
+        <li>Native Azure integration</li>
+        <li>Geo-replication support</li>
+        <li>Automated image builds</li>
+      </ul>
+    </div>
+
+    <div class="comp-card azure-card">
+      <div class="comp-icon">⚡</div>
+      <div class="comp-replaces">Replaces ECS Auto Scaling</div>
+      <div class="comp-name" style="color:var(--azure)">KEDA Autoscaling</div>
+      <div class="comp-desc">Kubernetes-based event-driven autoscaler built into Azure Container Apps for intelligent scaling.</div>
+      <ul class="comp-list">
+        <li>Scale on CPU &amp; memory</li>
+        <li>Event-driven scaling (queues)</li>
+        <li>Scale to zero support</li>
+        <li>HTTP request-based scaling</li>
+      </ul>
+    </div>
+
+    <div class="comp-card azure-card">
+      <div class="comp-icon">📈</div>
+      <div class="comp-replaces">Replaces CloudWatch</div>
+      <div class="comp-name" style="color:var(--azure)">Azure Monitor</div>
+      <div class="comp-desc">Full-stack monitoring, logging, and alerting for Azure services and containerized apps.</div>
+      <ul class="comp-list">
+        <li>Container logs &amp; metrics</li>
+        <li>Log Analytics workspace</li>
+        <li>Alerts &amp; dashboards</li>
+        <li>Application Insights</li>
+      </ul>
+    </div>
+
+    <div class="comp-card azure-card">
+      <div class="comp-icon">🗝️</div>
+      <div class="comp-replaces">Replaces AWS Secrets Manager</div>
+      <div class="comp-name" style="color:var(--azure)">Azure Key Vault</div>
+      <div class="comp-desc">Secure storage for secrets, certificates, and keys. Referenced directly in Container App env vars.</div>
+      <ul class="comp-list">
+        <li>Secrets management</li>
+        <li>Certificate storage</li>
+        <li>Managed Identity access</li>
+        <li>Audit logging</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- DEPLOYMENT -->
+<section id="deployment" class="fade-in">
+  <div class="section-label">CI/CD Pipeline</div>
+  <div class="section-title">Azure Deployment <span class="hl-azure">Flow</span></div>
+  <div class="pipeline">
+    <div class="pipe-step">
+      <div class="pipe-num">STEP 01</div>
+      <div class="pipe-icon">⚙️</div>
+      <div class="pipe-title">GitHub Actions</div>
+      <div class="pipe-sub">CI/CD trigger on push / PR merge</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">STEP 02</div>
+      <div class="pipe-icon">🐳</div>
+      <div class="pipe-title">Build Docker Image</div>
+      <div class="pipe-sub">docker build -t my-app .</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">STEP 03</div>
+      <div class="pipe-icon">🗄️</div>
+      <div class="pipe-title">Push to ACR</div>
+      <div class="pipe-sub">Azure Container Registry</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">STEP 04</div>
+      <div class="pipe-icon">📦</div>
+      <div class="pipe-title">Deploy Container App</div>
+      <div class="pipe-sub">New revision auto-deployed</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">STEP 05</div>
+      <div class="pipe-icon">🌐</div>
+      <div class="pipe-title">App Gateway</div>
+      <div class="pipe-sub">Routes traffic to new replica</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">STEP 06</div>
+      <div class="pipe-icon">👥</div>
+      <div class="pipe-title">Users</div>
+      <div class="pipe-sub">Zero-downtime live traffic</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- RECOMMENDATION -->
+<section id="recommendation" class="fade-in">
+  <div class="section-label">Final Recommendation</div>
+  <div class="section-title">Recommended <span class="hl-azure">Azure Stack</span></div>
+  <div class="rec-box">
+    <div class="rec-alert">✅ Use Azure Container Apps — Not AKS</div>
+    <p style="color:var(--muted);max-width:640px;font-size:15px;line-height:1.7;">
+      Since your current infrastructure uses ECS with Fargate (serverless), the best Azure equivalent is
+      <strong style="color:var(--azure)">Azure Container Apps</strong>. AKS is not required unless you
+      intentionally want to migrate to Kubernetes with full cluster control.
+    </p>
+    <div class="rec-stack">
+      <div class="rec-item">📦 Azure Container Apps</div>
+      <div class="rec-item">🌐 Azure Application Gateway</div>
+      <div class="rec-item">🗄️ Azure Container Registry (ACR)</div>
+      <div class="rec-item">📈 Azure Monitor</div>
+      <div class="rec-item">⚡ KEDA Autoscaling</div>
+      <div class="rec-item">🗝️ Azure Key Vault</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span class="aws">AWS ECS Fargate</span>
+  &nbsp;→&nbsp;
+  <span class="az">Azure Container Apps</span>
+  &nbsp;·&nbsp; Architecture Migration Guide
+</footer>
+
+<script>
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>
