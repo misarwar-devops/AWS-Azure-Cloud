@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Airbyte — abctl & EC2 Deployment Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0c10;
+    --bg2: #10141c;
+    --bg3: #161b26;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0;
+    --muted: #7a8299;
+    --accent: #3b82f6;
+    --accent2: #06d6a0;
+    --accent3: #f59e0b;
+    --accent4: #8b5cf6;
+    --code-bg: #0d1117;
+    --pill-bg: rgba(59,130,246,0.12);
+    --pill-border: rgba(59,130,246,0.3);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Sora', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+
+  /* NAV */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,12,16,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    height: 56px;
+  }
+
+  .nav-logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 0;
+    list-style: none;
+    flex: 1;
+  }
+
+  .nav-links a {
+    display: block;
+    padding: 0 1rem;
+    height: 56px;
+    line-height: 56px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 400;
+    transition: color 0.2s;
+    white-space: nowrap;
+  }
+  .nav-links a:hover { color: var(--text); }
+
+  .nav-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--pill-bg);
+    border: 1px solid var(--pill-border);
+    color: var(--accent);
+    padding: 3px 10px;
+    border-radius: 99px;
+  }
+
+  /* HERO */
+  .hero {
+    min-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 5rem 2rem 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(59,130,246,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 30% at 80% 80%, rgba(6,214,160,0.07) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    opacity: 0.9;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    font-weight: 700;
+    letter-spacing: -2px;
+    line-height: 1.05;
+    margin-bottom: 1.5rem;
+    color: #fff;
+  }
+
+  .hero h1 span {
+    color: var(--accent);
+  }
+
+  .hero-sub {
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 520px;
+    margin: 0 auto 2.5rem;
+    font-weight: 300;
+    line-height: 1.65;
+  }
+
+  .hero-cmd {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    background: var(--code-bg);
+    border: 1px solid var(--border2);
+    color: var(--accent2);
+    padding: 14px 28px;
+    border-radius: 8px;
+    display: inline-block;
+    margin-bottom: 3rem;
+    position: relative;
+  }
+
+  .hero-cmd::before {
+    content: '$';
+    color: var(--muted);
+    margin-right: 10px;
+  }
+
+  .hero-cards {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+
+  .hero-pill {
+    font-size: 12px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 5px 14px;
+    border-radius: 99px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* SECTIONS */
+  section {
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: 5rem 2rem;
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+  }
+
+  h2 {
+    font-size: clamp(1.8rem, 3vw, 2.4rem);
+    font-weight: 700;
+    letter-spacing: -1px;
+    color: #fff;
+    margin-bottom: 0.75rem;
+  }
+
+  h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+
+  .section-intro {
+    color: var(--muted);
+    max-width: 600px;
+    margin-bottom: 3rem;
+    font-size: 15px;
+    line-height: 1.75;
+  }
+
+  /* DIVIDER */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    max-width: 1060px;
+    margin: 0 auto;
+  }
+
+  /* CARDS */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--border2); }
+
+  /* WITHOUT/WITH GRID */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 3rem;
+  }
+
+  .compare-col {
+    background: var(--bg2);
+    padding: 2rem;
+  }
+
+  .compare-col-header {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .compare-col.bad .compare-col-header { color: #ef4444; }
+  .compare-col.good .compare-col-header { color: var(--accent2); }
+
+  .compare-col li {
+    list-style: none;
+    color: var(--muted);
+    font-size: 13.5px;
+    padding: 5px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .compare-col.bad li::before { content: '—'; color: #ef4444; flex-shrink: 0; }
+  .compare-col.good li::before { content: '✓'; color: var(--accent2); flex-shrink: 0; }
+
+  /* HOW IT WORKS STEPS */
+  .steps {
+    display: grid;
+    gap: 1px;
+    background: var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .step {
+    background: var(--bg2);
+    padding: 1.5rem 2rem;
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 1.25rem;
+    align-items: start;
+    transition: background 0.2s;
+  }
+  .step:hover { background: var(--bg3); }
+
+  .step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.2);
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .step-content h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  .step-content p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* COMMANDS */
+  .cmd-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  .cmd-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .cmd-card:hover { border-color: var(--border2); background: var(--bg3); }
+
+  .cmd-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--pill-bg);
+    border: 1px solid var(--pill-border);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 0.75rem;
+  }
+
+  .cmd-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--accent2);
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    word-break: break-all;
+  }
+
+  .cmd-desc {
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* EC2 ENVIRONMENTS */
+  .env-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .env-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 0.25s, transform 0.2s;
+  }
+  .env-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+
+  .env-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .env-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    flex-shrink: 0;
+  }
+
+  .env-title { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 2px; }
+  .env-sub { font-size: 11.5px; color: var(--muted); }
+
+  .env-body { padding: 1.25rem 1.5rem; }
+
+  .spec-table { width: 100%; border-collapse: collapse; }
+  .spec-table tr { border-bottom: 1px solid var(--border); }
+  .spec-table tr:last-child { border-bottom: none; }
+  .spec-table td { padding: 7px 0; font-size: 12.5px; vertical-align: top; }
+  .spec-table td:first-child { color: var(--muted); width: 45%; }
+  .spec-table td:last-child { color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }
+
+  .env-use-list { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .env-use-list p { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
+  .env-use-list ul { list-style: none; }
+  .env-use-list li {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 2px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .env-use-list li::before { content: '·'; font-size: 16px; }
+
+  /* BADGE */
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 99px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge-dev { background: rgba(6,214,160,0.12); color: var(--accent2); border: 1px solid rgba(6,214,160,0.25); }
+  .badge-prod { background: rgba(59,130,246,0.12); color: var(--accent); border: 1px solid rgba(59,130,246,0.25); }
+  .badge-k8s { background: rgba(139,92,246,0.12); color: var(--accent4); border: 1px solid rgba(139,92,246,0.25); }
+
+  /* AWS SERVICES TABLE */
+  .aws-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin-top: 1.5rem;
+  }
+
+  .aws-service {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+  .aws-service:hover { border-color: var(--border2); }
+
+  .aws-service-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent4);
+    margin-bottom: 4px;
+  }
+  .aws-service-desc { font-size: 11px; color: var(--muted); }
+
+  /* SUMMARY TABLE */
+  .summary-table-wrap {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 2rem;
+  }
+
+  .summary-table { width: 100%; border-collapse: collapse; }
+  .summary-table th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    padding: 1rem 1.5rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+    font-weight: 400;
+  }
+  .summary-table td {
+    padding: 0.9rem 1.5rem;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .summary-table tr:last-child td { border-bottom: none; }
+  .summary-table td:first-child { color: var(--muted); }
+  .summary-table td:nth-child(2) { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text); }
+  .summary-table td:last-child { font-size: 12px; color: var(--muted); }
+
+  /* ECOSYSTEM PILLS */
+  .eco-pills {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+  }
+
+  .eco-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 18px;
+    border-radius: 8px;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .eco-pill:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* WARNING BOX */
+  .warning-box {
+    background: rgba(245,158,11,0.07);
+    border: 1px solid rgba(245,158,11,0.2);
+    border-left: 3px solid var(--accent3);
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    margin-top: 2.5rem;
+  }
+
+  .warning-box p { font-size: 13.5px; color: #d4a017; line-height: 1.6; }
+  .warning-box strong { color: var(--accent3); }
+
+  /* QUOTE */
+  .quote-block {
+    border-left: 3px solid var(--accent);
+    padding: 1rem 1.5rem;
+    margin: 2.5rem 0;
+    background: rgba(59,130,246,0.05);
+    border-radius: 0 8px 8px 0;
+  }
+  .quote-block p {
+    font-size: 15px;
+    color: var(--muted);
+    font-style: italic;
+    line-height: 1.7;
+  }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2.5rem 2rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12.5px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* SCROLL ANIMATION */
+  .fade-up {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .fade-up.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 680px) {
+    .compare-grid { grid-template-columns: 1fr; }
+    nav .nav-links { display: none; }
+    .hero h1 { letter-spacing: -1px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="#top">ab·ctl</a>
+  <ul class="nav-links">
+    <li><a href="#what-is">Overview</a></li>
+    <li><a href="#how-it-works">How It Works</a></li>
+    <li><a href="#commands">Commands</a></li>
+    <li><a href="#deployment">Deployment</a></li>
+    <li><a href="#ec2">EC2 Sizing</a></li>
+    <li><a href="#ecosystem">Ecosystem</a></li>
+  </ul>
+  <span class="nav-badge">v1.x</span>
+</nav>
+
+<!-- HERO -->
+<div class="hero" id="top">
+  <p class="hero-eyebrow">Airbyte CLI · Complete Deployment Guide</p>
+  <h1>One command.<br>Full <span>Airbyte</span> stack.</h1>
+  <p class="hero-sub">abctl installs and manages Airbyte — locally or on any server — without requiring Kubernetes expertise.</p>
+  <div class="hero-cmd">abctl local install</div>
+  <div class="hero-cards">
+    <span class="hero-pill">No K8s expertise needed</span>
+    <span class="hero-pill">Dev → Production ready</span>
+    <span class="hero-pill">EC2 sized recommendations</span>
+    <span class="hero-pill">AWS EKS support</span>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- WHAT IS -->
+<section id="what-is" class="fade-up">
+  <p class="section-label">Overview</p>
+  <h2>What is abctl?</h2>
+  <p class="section-intro">abctl is a command-line tool provided by Airbyte to simplify installation and management of Airbyte — locally or on a server. It acts as a wrapper around Kubernetes and Docker, automatically handling the entire deployment process.</p>
+
+  <div class="compare-grid">
+    <div class="compare-col bad">
+      <div class="compare-col-header">Without abctl</div>
+      <ul>
+        <li>Set up Kubernetes manually</li>
+        <li>Install and configure Helm</li>
+        <li>Manage Docker containers</li>
+        <li>Configure networking rules</li>
+        <li>Manage secrets and volumes</li>
+        <li>Run many deployment commands</li>
+      </ul>
+    </div>
+    <div class="compare-col good">
+      <div class="compare-col-header">With abctl</div>
+      <ul>
+        <li>One command installation</li>
+        <li>Automated cluster creation</li>
+        <li>Helm charts auto-deployed</li>
+        <li>Networking configured for you</li>
+        <li>Volumes and storage handled</li>
+        <li>UI and API services started</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="quote-block">
+    <p>Think of abctl as a <em>one-command installer</em> and manager for Airbyte. It removes the complexity of manually configuring Kubernetes, Docker, networking, and deployment steps — giving you a running Airbyte instance in minutes instead of hours.</p>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- HOW IT WORKS -->
+<section id="how-it-works" class="fade-up">
+  <p class="section-label">Internals</p>
+  <h2>What abctl does internally</h2>
+  <p class="section-intro">When you run <code style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent2);background:var(--code-bg);padding:2px 8px;border-radius:4px;">abctl local install</code>, six steps fire automatically in sequence.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-content">
+        <h4>Create local Kubernetes cluster</h4>
+        <p>Spins up a local k3d/k3s cluster — a lightweight Kubernetes distribution optimized for local use.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-content">
+        <h4>Install Airbyte Helm charts</h4>
+        <p>Fetches and applies the official Airbyte Helm charts into the newly created cluster.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-content">
+        <h4>Deploy all Airbyte services</h4>
+        <p>Brings up every Airbyte microservice — server, webapp, temporal, and connector catalog.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <div class="step-content">
+        <h4>Configure networking</h4>
+        <p>Sets up ingress, port forwarding, and service discovery so everything can communicate.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">05</div>
+      <div class="step-content">
+        <h4>Create storage volumes</h4>
+        <p>Provisions persistent volumes for data, logs, and database state to survive restarts.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">06</div>
+      <div class="step-content">
+        <h4>Start Airbyte UI & API</h4>
+        <p>Airbyte is live — the web interface and REST API are accessible and ready for connections.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- COMMANDS -->
+<section id="commands" class="fade-up">
+  <p class="section-label">CLI Reference</p>
+  <h2>Common abctl commands</h2>
+  <p class="section-intro">Everything you need to manage your local Airbyte installation.</p>
+
+  <div class="cmd-grid">
+    <div class="cmd-card">
+      <span class="cmd-tag">install</span>
+      <div class="cmd-code">abctl local install</div>
+      <p class="cmd-desc">Bootstraps a full Airbyte stack locally. Downloads images, creates cluster, and starts all services.</p>
+    </div>
+    <div class="cmd-card">
+      <span class="cmd-tag">status</span>
+      <div class="cmd-code">abctl local status</div>
+      <p class="cmd-desc">Reports the health of running pods, services, and the Airbyte API endpoint.</p>
+    </div>
+    <div class="cmd-card">
+      <span class="cmd-tag">stop</span>
+      <div class="cmd-code">abctl local stop</div>
+      <p class="cmd-desc">Gracefully stops all running containers while preserving volumes and configuration data.</p>
+    </div>
+    <div class="cmd-card">
+      <span class="cmd-tag">uninstall</span>
+      <div class="cmd-code">abctl local uninstall</div>
+      <p class="cmd-desc">Tears down the cluster and removes all Airbyte resources, volumes, and the local installation.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- DEPLOYMENT CONTEXT -->
+<section id="deployment" class="fade-up">
+  <p class="section-label">Deployment Context</p>
+  <h2>Where to use abctl</h2>
+  <p class="section-intro">abctl shines in development contexts. For production-grade deployments, a more hands-on Kubernetes approach is typically preferred.</p>
+
+  <div class="compare-grid">
+    <div class="compare-col good">
+      <div class="compare-col-header" style="color: var(--accent2);">Recommended — Development & Testing</div>
+      <ul>
+        <li>Local development environments</li>
+        <li>Quick prototyping and demos</li>
+        <li>CI/CD pipeline testing</li>
+        <li>Small self-hosted deployments</li>
+        <li>Learning and exploration</li>
+      </ul>
+    </div>
+    <div class="compare-col" style="background: var(--bg2);">
+      <div class="compare-col-header" style="color: var(--accent4);">Production — Enterprise Deployments</div>
+      <ul style="list-style: none;">
+        <li style="display:flex;gap:8px;padding:5px 0;color:var(--muted);font-size:13.5px;"><span style="color:var(--accent4);">→</span> Kubernetes (raw manifests)</li>
+        <li style="display:flex;gap:8px;padding:5px 0;color:var(--muted);font-size:13.5px;"><span style="color:var(--accent4);">→</span> Helm charts with custom values</li>
+        <li style="display:flex;gap:8px;padding:5px 0;color:var(--muted);font-size:13.5px;"><span style="color:var(--accent4);">→</span> AWS EKS clusters</li>
+        <li style="display:flex;gap:8px;padding:5px 0;color:var(--muted);font-size:13.5px;"><span style="color:var(--accent4);">→</span> Azure AKS clusters</li>
+        <li style="display:flex;gap:8px;padding:5px 0;color:var(--muted);font-size:13.5px;"><span style="color:var(--accent4);">→</span> Google GKE clusters</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- EC2 SIZING -->
+<section id="ec2" class="fade-up">
+  <p class="section-label">Infrastructure Guide</p>
+  <h2>Recommended EC2 Sizing for Airbyte</h2>
+  <p class="section-intro">Choose the right infrastructure tier based on your workload. Each environment has specific EC2 configurations optimized for that use case.</p>
+
+  <div class="env-grid">
+
+    <!-- DEV -->
+    <div class="env-card">
+      <div class="env-header">
+        <div class="env-icon" style="background: rgba(6,214,160,0.1); color: var(--accent2);">⚗</div>
+        <div>
+          <div class="env-title">Development / Testing <span class="badge badge-dev" style="margin-left:6px;">Dev</span></div>
+          <div class="env-sub">Single EC2 + abctl</div>
+        </div>
+      </div>
+      <div class="env-body">
+        <table class="spec-table">
+          <tr><td>Instance Type</td><td>t3.large</td></tr>
+          <tr><td>vCPU</td><td>2</td></tr>
+          <tr><td>RAM</td><td>8 GB</td></tr>
+          <tr><td>Storage</td><td>50 GB gp3 SSD</td></tr>
+          <tr><td>OS</td><td>Ubuntu 22.04</td></tr>
+          <tr><td>Database</td><td>Local PostgreSQL</td></tr>
+        </table>
+        <div class="env-use-list">
+          <p>Suitable for</p>
+          <ul>
+            <li>Learning Airbyte</li>
+            <li>Testing connectors</li>
+            <li>Small demo projects</li>
+            <li>Low-frequency sync jobs</li>
+            <li>Proof of concept</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SMALL PROD -->
+    <div class="env-card">
+      <div class="env-header">
+        <div class="env-icon" style="background: rgba(59,130,246,0.1); color: var(--accent);">⚙</div>
+        <div>
+          <div class="env-title">Small Production <span class="badge badge-prod" style="margin-left:6px;">Prod</span></div>
+          <div class="env-sub">EC2 + abctl + RDS</div>
+        </div>
+      </div>
+      <div class="env-body">
+        <table class="spec-table">
+          <tr><td>Instance Type</td><td>t3.xlarge / m5.xlarge</td></tr>
+          <tr><td>vCPU</td><td>4</td></tr>
+          <tr><td>RAM</td><td>16 GB</td></tr>
+          <tr><td>Storage</td><td>100–150 GB gp3 SSD</td></tr>
+          <tr><td>Database</td><td>Amazon RDS PostgreSQL</td></tr>
+          <tr><td>Backup</td><td>Enabled</td></tr>
+        </table>
+        <div class="env-use-list">
+          <p>Suitable for</p>
+          <ul>
+            <li>Startup projects</li>
+            <li>Moderate scheduled syncs</li>
+            <li>5–20 connectors</li>
+            <li>Small BI pipelines</li>
+            <li>Daily sync workflows</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- MEDIUM PROD -->
+    <div class="env-card">
+      <div class="env-header">
+        <div class="env-icon" style="background: rgba(139,92,246,0.1); color: var(--accent4);">☸</div>
+        <div>
+          <div class="env-title">Medium Production <span class="badge badge-k8s" style="margin-left:6px;">K8s</span></div>
+          <div class="env-sub">EKS + Helm + RDS</div>
+        </div>
+      </div>
+      <div class="env-body">
+        <table class="spec-table">
+          <tr><td>Platform</td><td>Amazon EKS</td></tr>
+          <tr><td>Node Type</td><td>m5.2xlarge</td></tr>
+          <tr><td>vCPU / Node</td><td>8</td></tr>
+          <tr><td>RAM / Node</td><td>32 GB</td></tr>
+          <tr><td>Storage</td><td>200+ GB gp3 SSD</td></tr>
+          <tr><td>Nodes</td><td>2–3 minimum</td></tr>
+          <tr><td>Database</td><td>RDS PostgreSQL Multi-AZ</td></tr>
+        </table>
+        <div class="env-use-list">
+          <p>Suitable for</p>
+          <ul>
+            <li>Growing companies</li>
+            <li>Multiple teams</li>
+            <li>Frequent sync jobs</li>
+            <li>Parallel connector execution</li>
+            <li>Larger datasets</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- WHY EXTERNAL DB -->
+  <div style="margin-top:2.5rem;">
+    <h3 style="margin-bottom:1rem;">Why use an external database?</h3>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:10px;">
+      <div class="card">
+        <p style="font-size:13px; color:var(--accent2); margin-bottom:4px; font-weight:600;">Reduced EC2 load</p>
+        <p style="font-size:12px; color:var(--muted);">Database doesn't compete with sync jobs for compute resources.</p>
+      </div>
+      <div class="card">
+        <p style="font-size:13px; color:var(--accent2); margin-bottom:4px; font-weight:600;">Improved stability</p>
+        <p style="font-size:12px; color:var(--muted);">Isolated DB failures can't crash your Airbyte instance.</p>
+      </div>
+      <div class="card">
+        <p style="font-size:13px; color:var(--accent2); margin-bottom:4px; font-weight:600;">Simplified backups</p>
+        <p style="font-size:12px; color:var(--muted);">RDS automated snapshots handle backup without extra scripts.</p>
+      </div>
+      <div class="card">
+        <p style="font-size:13px; color:var(--accent2); margin-bottom:4px; font-weight:600;">No corruption risk</p>
+        <p style="font-size:12px; color:var(--muted);">EC2 restarts won't corrupt a locally mounted PostgreSQL database.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- AWS SERVICES -->
+  <div style="margin-top:2.5rem;">
+    <h3 style="margin-bottom:0.5rem;">Recommended AWS services for medium production</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;">Use these managed services together for a resilient Airbyte deployment.</p>
+    <div class="aws-grid">
+      <div class="aws-service">
+        <div class="aws-service-name">EKS</div>
+        <div class="aws-service-desc">Kubernetes orchestration</div>
+      </div>
+      <div class="aws-service">
+        <div class="aws-service-name">RDS</div>
+        <div class="aws-service-desc">Managed PostgreSQL</div>
+      </div>
+      <div class="aws-service">
+        <div class="aws-service-name">ALB</div>
+        <div class="aws-service-desc">Load balancing</div>
+      </div>
+      <div class="aws-service">
+        <div class="aws-service-name">CloudWatch</div>
+        <div class="aws-service-desc">Monitoring & alerts</div>
+      </div>
+      <div class="aws-service">
+        <div class="aws-service-name">EBS gp3</div>
+        <div class="aws-service-desc">Persistent storage</div>
+      </div>
+      <div class="aws-service">
+        <div class="aws-service-name">Route 53</div>
+        <div class="aws-service-desc">DNS management</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WHY K8S -->
+  <div style="margin-top:2.5rem;">
+    <h3 style="margin-bottom:0.75rem;">Why Kubernetes for medium/large workloads?</h3>
+    <p style="font-size:13px;color:var(--muted);line-height:1.7;max-width:680px;">Airbyte launches many temporary connector containers during syncs. At scale, this requires proper orchestration. Kubernetes provides auto-healing so failed pods restart automatically, better resource scaling during peak syncs, isolation between connector workloads, easier rolling upgrades, and high availability across nodes.</p>
+  </div>
+
+  <!-- SUMMARY TABLE -->
+  <h3 style="margin-top:2.5rem; margin-bottom:0.25rem;">Quick reference summary</h3>
+  <div class="summary-table-wrap">
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>Environment</th>
+          <th>Recommended setup</th>
+          <th>Best for</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-dev">Development</span></td>
+          <td>Single EC2 + abctl</td>
+          <td>Testing, learning, demos, prototyping</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-prod">Small Prod</span></td>
+          <td>EC2 + abctl + RDS</td>
+          <td>Startups, 5–20 connectors, daily syncs</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-k8s">Medium Prod</span></td>
+          <td>EKS + Helm + RDS</td>
+          <td>Multiple teams, parallel syncs, large data</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="warning-box">
+    <p><strong>Important:</strong> Avoid tiny EC2 instances, local PostgreSQL, and small disks in any production scenario. Airbyte can consume significant CPU, memory, and disk — especially during parallel sync jobs and large data transfers. Undersizing leads to OOM errors, sync failures, and data corruption.</p>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ECOSYSTEM -->
+<section id="ecosystem" class="fade-up">
+  <p class="section-label">Ecosystem</p>
+  <h2>Similar tools</h2>
+  <p class="section-intro">abctl is conceptually similar to these Kubernetes tooling projects — all designed to reduce friction of running Kubernetes locally or on servers.</p>
+
+  <div class="eco-pills">
+    <span class="eco-pill">minikube</span>
+    <span class="eco-pill">kind</span>
+    <span class="eco-pill">kubectl</span>
+    <span class="eco-pill">k3d</span>
+    <span class="eco-pill">helm</span>
+    <span class="eco-pill">k3s</span>
+    <span class="eco-pill">eksctl</span>
+  </div>
+
+  <div style="margin-top:3rem; padding:2rem; background:var(--bg2); border:1px solid var(--border); border-radius:12px; text-align:center;">
+    <p style="font-size:13px;color:var(--muted);margin-bottom:0.25rem;">Get started in minutes</p>
+    <div style="font-family:'JetBrains Mono',monospace; font-size:18px; color:var(--accent2); margin:1rem 0;">$ abctl local install</div>
+    <p style="font-size:12px;color:var(--muted);">A full Airbyte stack — UI, API, connectors — running locally on your machine.</p>
+  </div>
+</section>
+
+<footer>
+  Airbyte Complete Guide · abctl CLI + EC2 Deployment Sizing ·
+  <a href="https://docs.airbyte.com" target="_blank">docs.airbyte.com</a>
+</footer>
+
+<script>
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.08 });
+
+  document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
