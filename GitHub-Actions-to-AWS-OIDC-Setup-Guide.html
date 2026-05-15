@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitHub Actions to AWS: OIDC Setup Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #0f1423;
+    --bg3: #141929;
+    --card: #161d30;
+    --card2: #1a2235;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --blue: #4f8ef7;
+    --blue-dim: rgba(79,142,247,0.12);
+    --blue-glow: rgba(79,142,247,0.25);
+    --green: #3ecf8e;
+    --green-dim: rgba(62,207,142,0.1);
+    --amber: #f5a623;
+    --amber-dim: rgba(245,166,35,0.1);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167,139,250,0.1);
+    --text1: #e8edf5;
+    --text2: #8b95a8;
+    --text3: #5a6376;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Sora', sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text1);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* NAV */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,14,26,0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 48px;
+    height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 15px; font-weight: 600; color: var(--text1);
+    text-decoration: none;
+  }
+  .nav-logo-icon {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: linear-gradient(135deg, #4f8ef7, #a78bfa);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+  }
+  .nav-links { display: flex; gap: 28px; align-items: center; }
+  .nav-links a { font-size: 13px; color: var(--text2); text-decoration: none; transition: color .2s; }
+  .nav-links a:hover { color: var(--text1); }
+  .nav-badge {
+    font-size: 11px; font-family: var(--mono);
+    padding: 3px 10px; border-radius: 20px;
+    background: var(--blue-dim); color: var(--blue);
+    border: 1px solid rgba(79,142,247,0.3);
+  }
+
+  /* HERO */
+  .hero {
+    padding: 80px 48px 64px;
+    max-width: 900px; margin: 0 auto;
+    position: relative;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; top: 0; left: -100px; right: -100px;
+    height: 300px;
+    background: radial-gradient(ellipse at 50% 0%, rgba(79,142,247,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .breadcrumb {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-family: var(--mono);
+    color: var(--text3); margin-bottom: 24px;
+  }
+  .breadcrumb span { color: var(--blue); }
+  .breadcrumb .sep { color: var(--text3); }
+
+  .hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-family: var(--mono); font-weight: 500;
+    color: var(--blue); background: var(--blue-dim);
+    border: 1px solid rgba(79,142,247,0.25);
+    padding: 5px 14px; border-radius: 20px;
+    margin-bottom: 20px;
+  }
+  .hero-eyebrow::before { content: '●'; font-size: 8px; }
+
+  h1 {
+    font-size: 42px; font-weight: 700; line-height: 1.15;
+    color: var(--text1); margin-bottom: 16px;
+    letter-spacing: -0.02em;
+  }
+  h1 span { color: var(--blue); }
+
+  .hero-sub {
+    font-size: 16px; color: var(--text2); line-height: 1.7;
+    max-width: 580px; margin-bottom: 32px; font-weight: 300;
+  }
+
+  .hero-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 40px; }
+  .htag {
+    font-size: 12px; font-family: var(--mono);
+    padding: 5px 12px; border-radius: 6px; border: 1px solid;
+  }
+  .htag-blue { background: var(--blue-dim); color: var(--blue); border-color: rgba(79,142,247,0.3); }
+  .htag-green { background: var(--green-dim); color: var(--green); border-color: rgba(62,207,142,0.3); }
+  .htag-amber { background: var(--amber-dim); color: var(--amber); border-color: rgba(245,166,35,0.3); }
+  .htag-purple { background: var(--purple-dim); color: var(--purple); border-color: rgba(167,139,250,0.3); }
+
+  /* FLOW */
+  .flow {
+    display: flex; align-items: center; gap: 0;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px 28px;
+    margin-bottom: 64px; overflow-x: auto;
+  }
+  .flow-node {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    min-width: 110px;
+  }
+  .flow-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .flow-node-label { font-size: 12px; font-weight: 500; color: var(--text1); text-align: center; }
+  .flow-node-sub { font-size: 11px; color: var(--text3); font-family: var(--mono); text-align: center; }
+  .flow-arrow {
+    flex: 1; height: 1px; background: var(--border2);
+    position: relative; margin: 0 8px; min-width: 30px; margin-bottom: 20px;
+  }
+  .flow-arrow::after {
+    content: '▶'; position: absolute; right: -6px; top: -8px;
+    font-size: 10px; color: var(--text3);
+  }
+
+  /* MAIN LAYOUT */
+  .layout {
+    max-width: 900px; margin: 0 auto;
+    padding: 0 48px 80px;
+    display: grid; grid-template-columns: 200px 1fr; gap: 40px;
+  }
+
+  /* SIDEBAR */
+  .sidebar { position: sticky; top: 80px; align-self: start; }
+  .sb-title { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px; }
+  .sb-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px;
+    font-size: 13px; color: var(--text2);
+    cursor: pointer; transition: all .15s; margin-bottom: 2px;
+    text-decoration: none; border: 1px solid transparent;
+  }
+  .sb-item:hover { background: var(--card); color: var(--text1); }
+  .sb-item.active { background: var(--blue-dim); color: var(--blue); border-color: rgba(79,142,247,0.2); }
+  .sb-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .sb-divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  /* STEPS */
+  .steps { display: flex; flex-direction: column; gap: 20px; }
+
+  .step-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .step-card:hover { border-color: var(--border2); }
+
+  .step-head {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--card2);
+  }
+  .step-number {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(135deg, #4f8ef7, #a78bfa);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600; color: #fff;
+    flex-shrink: 0;
+  }
+  .step-htitle { font-size: 15px; font-weight: 600; color: var(--text1); flex: 1; }
+  .step-env {
+    font-size: 11px; font-family: var(--mono);
+    padding: 3px 10px; border-radius: 5px;
+  }
+  .env-aws { background: rgba(245,166,35,0.12); color: var(--amber); border: 1px solid rgba(245,166,35,0.25); }
+  .env-iam { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(79,142,247,0.25); }
+  .env-gha { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(167,139,250,0.25); }
+
+  .step-body { padding: 20px 24px; }
+  .step-desc { font-size: 13px; color: var(--text2); line-height: 1.7; margin-bottom: 16px; }
+
+  .code-block {
+    background: #0d1117;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px; overflow: hidden;
+  }
+  .code-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.02);
+  }
+  .code-lang { font-size: 11px; font-family: var(--mono); color: var(--text3); }
+  .code-copy {
+    font-size: 11px; color: var(--text3); background: none; border: none;
+    cursor: pointer; font-family: var(--mono); transition: color .15s;
+  }
+  .code-copy:hover { color: var(--text1); }
+  .code-inner {
+    padding: 16px 18px;
+    font-size: 12.5px; font-family: var(--mono); line-height: 1.9;
+    overflow-x: auto;
+  }
+  .ck { color: #79b8ff; }
+  .cv { color: #85e89d; }
+  .cc { color: #6a737d; font-style: italic; }
+  .cs { color: #f97583; }
+
+  .info-box {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--blue-dim); border: 1px solid rgba(79,142,247,0.2);
+    border-radius: 10px; padding: 12px 16px; margin-top: 14px;
+  }
+  .info-icon { font-size: 16px; margin-top: 1px; }
+  .info-text { font-size: 12.5px; color: #7fb3f5; line-height: 1.6; }
+  .info-text a { color: var(--blue); }
+
+  /* PROGRESS */
+  .progress-row {
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 28px; padding: 14px 20px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .pr-step {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-family: var(--mono);
+    padding: 4px 10px; border-radius: 6px;
+  }
+  .pr-done { color: var(--green); background: var(--green-dim); }
+  .pr-active { color: var(--blue); background: var(--blue-dim); }
+  .pr-todo { color: var(--text3); }
+  .pr-sep { flex: 1; height: 1px; background: var(--border); min-width: 16px; }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 24px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .footer-left { font-size: 12px; color: var(--text3); font-family: var(--mono); }
+  .footer-tags { display: flex; gap: 6px; }
+  .ftag {
+    font-size: 11px; font-family: var(--mono);
+    padding: 3px 10px; border-radius: 5px;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text3);
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="#">
+    <div class="nav-logo-icon">⚡</div>
+    DevDocs
+  </a>
+  <div class="nav-links">
+    <a href="#">Guides</a>
+    <a href="#">Reference</a>
+    <a href="#">Examples</a>
+    <a href="#">Community</a>
+    <span class="nav-badge">v2.1</span>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="breadcrumb">
+    Docs <span class="sep">›</span> GitHub Actions <span class="sep">›</span> <span>OIDC AWS Setup</span>
+  </div>
+  <div class="hero-eyebrow">Security guide · 5 min read</div>
+  <h1>GitHub Actions to <span>AWS</span><br>OIDC Setup Guide</h1>
+  <p class="hero-sub">Configure keyless authentication from GitHub Actions to AWS — no hardcoded secrets, no long-lived credentials. Just secure, temporary access via OpenID Connect.</p>
+  <div class="hero-tags">
+    <span class="htag htag-blue">GitHub Actions</span>
+    <span class="htag htag-blue">AWS IAM</span>
+    <span class="htag htag-green">OIDC</span>
+    <span class="htag htag-amber">ECR</span>
+    <span class="htag htag-amber">ECS</span>
+    <span class="htag htag-purple">STS</span>
+  </div>
+
+  <div class="flow">
+    <div class="flow-node">
+      <div class="flow-icon" style="background:rgba(79,142,247,0.12);color:#4f8ef7">🔐</div>
+      <div class="flow-node-label">Identity<br>Provider</div>
+      <div class="flow-node-sub">AWS IAM</div>
+    </div>
+    <div class="flow-arrow"></div>
+    <div class="flow-node">
+      <div class="flow-icon" style="background:rgba(245,166,35,0.12);color:#f5a623">📄</div>
+      <div class="flow-node-label">IAM<br>Policy</div>
+      <div class="flow-node-sub">permissions</div>
+    </div>
+    <div class="flow-arrow"></div>
+    <div class="flow-node">
+      <div class="flow-icon" style="background:rgba(62,207,142,0.12);color:#3ecf8e">👤</div>
+      <div class="flow-node-label">IAM<br>Role</div>
+      <div class="flow-node-sub">trust policy</div>
+    </div>
+    <div class="flow-arrow"></div>
+    <div class="flow-node">
+      <div class="flow-icon" style="background:rgba(167,139,250,0.12);color:#a78bfa">⚙️</div>
+      <div class="flow-node-label">GHA<br>Workflow</div>
+      <div class="flow-node-sub">credentials</div>
+    </div>
+    <div class="flow-arrow"></div>
+    <div class="flow-node">
+      <div class="flow-icon" style="background:rgba(62,207,142,0.12);color:#3ecf8e">✅</div>
+      <div class="flow-node-label">Temp<br>Credentials</div>
+      <div class="flow-node-sub">via STS</div>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sb-title">On this page</div>
+    <a class="sb-item active" href="#step1"><div class="sb-dot"></div> Identity provider</a>
+    <a class="sb-item" href="#step2"><div class="sb-dot"></div> Create policy</a>
+    <a class="sb-item" href="#step3"><div class="sb-dot"></div> Create role</a>
+    <a class="sb-item" href="#step4"><div class="sb-dot"></div> GHA workflow</a>
+    <div class="sb-divider"></div>
+    <div class="sb-title">Related</div>
+    <a class="sb-item" href="#"><div class="sb-dot"></div> ECR push image</a>
+    <a class="sb-item" href="#"><div class="sb-dot"></div> ECS deploy</a>
+    <a class="sb-item" href="#"><div class="sb-dot"></div> Secrets manager</a>
+  </aside>
+
+  <main>
+    <div class="progress-row">
+      <div class="pr-step pr-done">✓ Provider</div>
+      <div class="pr-sep"></div>
+      <div class="pr-step pr-done">✓ Policy</div>
+      <div class="pr-sep"></div>
+      <div class="pr-step pr-active">● Role</div>
+      <div class="pr-sep"></div>
+      <div class="pr-step pr-todo">○ Workflow</div>
+    </div>
+
+    <div class="steps">
+
+      <div class="step-card" id="step1">
+        <div class="step-head">
+          <div class="step-number">1</div>
+          <div class="step-htitle">Add identity provider in AWS IAM</div>
+          <span class="step-env env-aws">AWS Console</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Register GitHub's OIDC provider in your AWS account so AWS can verify tokens issued by GitHub Actions runners. This is a one-time setup per AWS account.</p>
+          <div class="code-block">
+            <div class="code-topbar">
+              <span class="code-lang">config</span>
+              <button class="code-copy" onclick="this.textContent='copied!';setTimeout(()=>this.textContent='copy',1500)">copy</button>
+            </div>
+            <div class="code-inner">
+              <span class="cc"># In AWS Console → IAM → Identity providers</span><br>
+              <span class="ck">Provider URL:</span> <span class="cv">https://token.actions.githubusercontent.com</span><br>
+              <span class="ck">Audience:</span>   <span class="cv">sts.amazonaws.com</span>
+            </div>
+          </div>
+          <div class="info-box">
+            <span class="info-icon">📎</span>
+            <div class="info-text">Full guide: <a href="https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws">docs.github.com → oidc-in-aws</a></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card" id="step2">
+        <div class="step-head">
+          <div class="step-number">2</div>
+          <div class="step-htitle">Create IAM policy</div>
+          <span class="step-env env-iam">IAM → Policies</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Define the minimum permissions this deployment role needs — such as pushing images to ECR and updating ECS services. Follow least-privilege principles.</p>
+          <div class="code-block">
+            <div class="code-topbar">
+              <span class="code-lang">yaml</span>
+              <button class="code-copy" onclick="this.textContent='copied!';setTimeout(()=>this.textContent='copy',1500)">copy</button>
+            </div>
+            <div class="code-inner">
+              <span class="cc"># Policy name</span><br>
+              <span class="ck">name:</span> <span class="cv">github-deployment-policy</span><br><br>
+              <span class="cc"># Attach permissions for ECR + ECS access</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card" id="step3">
+        <div class="step-head">
+          <div class="step-number">3</div>
+          <div class="step-htitle">Create IAM role</div>
+          <span class="step-env env-iam">IAM → Roles</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Create a role with a trust policy scoped to your specific GitHub repository. Then attach the policy from step 2. The role ARN is what the workflow will assume.</p>
+          <div class="code-block">
+            <div class="code-topbar">
+              <span class="code-lang">yaml</span>
+              <button class="code-copy" onclick="this.textContent='copied!';setTimeout(()=>this.textContent='copy',1500)">copy</button>
+            </div>
+            <div class="code-inner">
+              <span class="ck">name:</span> <span class="cv">github-deployment-role</span><br><br>
+              <span class="cc"># Trust policy condition (restrict to your repo)</span><br>
+              <span class="ck">token.actions.githubusercontent.com:sub:</span><br>
+              &nbsp;&nbsp;<span class="cv">repo:your-org/your-repo:ref:refs/heads/main</span><br><br>
+              <span class="cc"># Resulting ARN</span><br>
+              <span class="ck">arn:</span> <span class="cv">arn:aws:iam::194343789279:role/github-deployment-role</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card" id="step4">
+        <div class="step-head">
+          <div class="step-number">4</div>
+          <div class="step-htitle">Configure credentials in GitHub Actions</div>
+          <span class="step-env env-gha">.github/workflows</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Add this step before any AWS commands in your workflow. The action exchanges the GitHub OIDC token for temporary AWS credentials via STS — injected automatically into all subsequent steps.</p>
+          <div class="code-block">
+            <div class="code-topbar">
+              <span class="code-lang">yaml</span>
+              <button class="code-copy" onclick="this.textContent='copied!';setTimeout(()=>this.textContent='copy',1500)">copy</button>
+            </div>
+            <div class="code-inner">
+              <span class="cs">- name:</span> <span class="cv">Configure AWS credentials (OIDC)</span><br>
+              &nbsp;&nbsp;<span class="ck">uses:</span> <span class="cv">aws-actions/configure-aws-credentials@v4</span><br>
+              &nbsp;&nbsp;<span class="ck">with:</span><br>
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">role-to-assume:</span> <span class="cv">arn:aws:iam::194343789279:role/github-deployment-role</span><br>
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">role-session-name:</span> <span class="cv">gha-ecr-ecs-deploy</span><br>
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="ck">aws-region:</span> <span class="cv">${{ env.AWS_REGION }}</span>
+            </div>
+          </div>
+          <div class="info-box">
+            <span class="info-icon">💡</span>
+            <div class="info-text">Temporary credentials are valid for 1 hour by default and automatically available to all subsequent steps in the job via environment variables.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="footer-left">Last updated May 2026 · 5 min read · GitHub Actions</div>
+  <div class="footer-tags">
+    <span class="ftag">ECR</span>
+    <span class="ftag">ECS</span>
+    <span class="ftag">STS</span>
+    <span class="ftag">OIDC</span>
+    <span class="ftag">IAM</span>
+  </div>
+</footer>
+
+<script>
+const items = document.querySelectorAll('.sb-item');
+items.forEach(i => i.addEventListener('click', () => {
+  items.forEach(x => x.classList.remove('active'));
+  i.classList.add('active');
+}));
+</script>
+</body>
+</html>
